@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Buddy Brew Accounting</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root {
+    --surface-2:#ffffff; --surface-1:#F1EFE8; --surface-0:#FAFAF8;
+    --text-primary:#1a1a1a; --text-secondary:#5f5e5a; --text-muted:#888780;
+    --border:#e3e1d8; --border-strong:#cfcdc2; --radius:8px;
+    --accent:#2f6f4f; --danger:#A32D2D;
+  }
+  body { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; background: var(--surface-0); margin:0; padding: 24px 16px 64px; color: var(--text-primary); }
+  button { padding: 8px 14px; border-radius: 8px; border: 0.5px solid var(--border-strong); background: #fff; cursor:pointer; font-size:14px; color: var(--text-primary); font-family: inherit; }
+  button:hover { background: var(--surface-1); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover { opacity: 0.9; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  input, select, textarea { width:100%; box-sizing:border-box; padding:9px 10px; border-radius:8px; border:0.5px solid var(--border-strong); font-size:14px; font-family:inherit; color:var(--text-primary); background:#fff; }
+  label { display:block; font-size:12px; color:var(--text-secondary); margin-bottom:4px; }
+  .field { margin-bottom:12px; }
+  .card { background: var(--surface-2); border-radius: 12px; border: 0.5px solid var(--border); padding: 1.1rem; max-width:480px; margin:0 auto 16px; }
+  .row { display:flex; gap:8px; }
+  .row > * { flex:1; }
+  .muted { color: var(--text-muted); font-size:12px; }
+  .tabbar { display:flex; gap:6px; max-width:480px; margin:0 auto 16px; flex-wrap:wrap; }
+  .tabbar button { flex:1; min-width: 100px; }
+  .tabbar button.active { background: var(--accent); border-color: var(--accent); color:#fff; }
+  table { width:100%; border-collapse: collapse; font-size:13px; }
+  th, td { text-align:left; padding:6px 4px; border-bottom: 0.5px solid var(--border); }
+  th { color: var(--text-secondary); font-weight:500; font-size:12px; }
+  .item-row input, .item-row select { padding:6px 8px; font-size:13px; }
+  .total-line { display:flex; justify-content:space-between; font-weight:500; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
+  .banner { border-radius:8px; padding:10px 12px; font-size:13px; margin-bottom:12px; }
+  .banner.ok { background:#eaf4ee; color:#1f5c3d; }
+  .banner.warn { background:#fbeeea; color:#8a3b1e; }
+  .banner.err { background:#fbeaea; color:var(--danger); }
+  .recon-card { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:0.5px solid var(--border); }
+  .recon-card:last-child { border-bottom:none; }
+</style>
+</head>
+<body>
+
+<div id="login-screen" class="card" style="display:none;">
+  <div style="font-weight:500; font-size:16px; margin-bottom:16px;">เข้าสู่ระบบบัญชี</div>
+  <form id="login-form">
+    <div class="field"><input id="login-email" type="email" placeholder="อีเมล" required></div>
+    <div class="field"><input id="login-password" type="password" placeholder="รหัสผ่าน" required></div>
+    <button type="submit" class="primary" style="width:100%;">เข้าสู่ระบบ</button>
+  </form>
+  <div id="login-error" style="color:var(--danger); font-size:13px; margin-top:8px; display:none;"></div>
+</div>
+
+<div id="app" style="display:none;">
+  <div style="max-width:480px; margin:0 auto 12px; display:flex; justify-content:space-between; align-items:center;">
+    <div style="font-weight:500; font-size:16px;">Buddy Brew — บัญชี</div>
+    <button id="logout-btn">ออกจากระบบ</button>
+  </div>
+
+  <div class="tabbar">
+    <button data-tab="expense" class="active">เพิ่มรายจ่าย</button>
+    <button data-tab="income">เพิ่มรายรับ</button>
+    <button data-tab="recon">กระทบยอด</button>
+    <button data-tab="report">รายงานเดือน</button>
+  </div>
+
+  <!-- TAB: เพิ่มรายจ่าย -->
+  <div id="tab-expense" class="tab-panel">
+    <div class="card">
+      <div class="field">
+        <label>ถ่ายรูป/เลือกรูปใบเสร็จ</label>
+        <input id="receipt-photo-input" type="file" accept="image/*" capture="environment">
+      </div>
+      <div id="ocr-status" class="muted" style="display:none; margin-bottom:10px;"></div>
+      <button id="manual-entry-btn" style="width:100%; margin-bottom:12px;">กรอกเอง (ไม่ใช้ OCR)</button>
+
+      <div id="expense-form" style="display:none;">
+        <div class="row">
+          <div class="field"><label>วันที่</label><input id="exp-date" type="date"></div>
+          <div class="field"><label>ร้านค้า</label><input id="exp-vendor" type="text" placeholder="เช่น Makro"></div>
+        </div>
+        <div class="field">
+          <label>วิธีจ่าย</label>
+          <select id="exp-payment-method">
+            <option value="cash">เงินสด</option>
+            <option value="transfer">โอน</option>
+            <option value="other">อื่นๆ</option>
+          </select>
+        </div>
+
+        <label>รายการสินค้า</label>
+        <table>
+          <thead><tr><th>ชื่อสินค้า</th><th style="width:52px;">จำนวน</th><th style="width:76px;">ราคา/หน่วย</th><th>หมวด</th><th></th></tr></thead>
+          <tbody id="items-tbody"></tbody>
+        </table>
+        <button id="add-item-row-btn" style="margin-top:8px;">+ เพิ่มรายการ</button>
+
+        <div class="total-line"><span>ยอดรวม</span><span id="items-total">0 บาท</span></div>
+
+        <div class="field" style="margin-top:12px;"><label>โน้ต (ถ้ามี)</label><textarea id="exp-note" rows="2"></textarea></div>
+
+        <button id="save-expense-btn" class="primary" style="width:100%; margin-top:8px;">บันทึก</button>
+        <div id="expense-save-banner" style="display:none; margin-top:10px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: เพิ่มรายรับ -->
+  <div id="tab-income" class="tab-panel" style="display:none;">
+    <div class="card">
+      <div class="field">
+        <label>ช่องทาง</label>
+        <select id="inc-channel"></select>
+      </div>
+      <div class="field">
+        <label>ประเภทยอด</label>
+        <select id="inc-kind">
+          <option value="expected">ยอดตามระบบ (คาดว่าจะได้)</option>
+          <option value="deposited">ยอดโอนเข้าจริง</option>
+        </select>
+      </div>
+      <div class="row">
+        <div class="field"><label>วันที่</label><input id="inc-date" type="date"></div>
+        <div class="field"><label>จำนวนเงิน (บาท)</label><input id="inc-amount" type="number" step="0.01" min="0"></div>
+      </div>
+      <div class="field"><label>โน้ต (ถ้ามี)</label><textarea id="inc-note" rows="2"></textarea></div>
+      <button id="save-income-btn" class="primary" style="width:100%;">บันทึก</button>
+      <div id="income-save-banner" style="display:none; margin-top:10px;"></div>
+    </div>
+  </div>
+
+  <!-- TAB: กระทบยอด -->
+  <div id="tab-recon" class="tab-panel" style="display:none;">
+    <div class="card">
+      <div class="field"><label>เดือน</label><input id="recon-month" type="month"></div>
+      <div id="recon-cards"></div>
+    </div>
+  </div>
+
+  <!-- TAB: รายงานเดือน -->
+  <div id="tab-report" class="tab-panel" style="display:none;">
+    <div class="card">
+      <div class="field"><label>เดือน</label><input id="report-month" type="month"></div>
+      <div id="report-income-summary" class="muted" style="margin-bottom:10px;"></div>
+      <table>
+        <thead><tr><th>หมวด</th><th>ตามโมเดล</th><th>จริง</th><th>ส่วนต่าง</th></tr></thead>
+        <tbody id="report-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://xsokynhtoxktazlomsnx.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_r-BdEYs8q61oSQKv_qJpPw_Xh5BPgRa";
+const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let currentSession = null;
+let expenseCategories = [];
+let incomeChannels = [];
+let expenseItems = []; // draft rows for the expense form: {item_name, quantity, unit_price, category_id}
+let receiptPhotoBlob = null;
+
+const loginScreen = document.getElementById('login-screen');
+const appEl = document.getElementById('app');
+const loginForm = document.getElementById('login-form');
+const loginError = document.getElementById('login-error');
+
+function money(n) { return (Math.round((n + Number.EPSILON) * 100) / 100).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' บาท'; }
+function todayStr() { return new Date().toISOString().slice(0, 10); }
+function thisMonthStr() { return new Date().toISOString().slice(0, 7); }
+
+function showLogin() { loginScreen.style.display = 'block'; appEl.style.display = 'none'; }
+function showApp() { loginScreen.style.display = 'none'; appEl.style.display = 'block'; }
+
+async function init() {
+  const { data: { session } } = await sbClient.auth.getSession();
+  if (session) {
+    currentSession = session;
+    await afterLogin();
+  } else {
+    showLogin();
+  }
+}
+
+loginForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  loginError.style.display = 'none';
+  const email = document.getElementById('login-email').value;
+  const password = document.getElementById('login-password').value;
+  const { data, error } = await sbClient.auth.signInWithPassword({ email, password });
+  if (error) {
+    loginError.textContent = 'อีเมลหรือรหัสผ่านไม่ถูกต้อง';
+    loginError.style.display = 'block';
+    return;
+  }
+  currentSession = data.session;
+  await afterLogin();
+});
+
+document.getElementById('logout-btn').addEventListener('click', async () => {
+  await sbClient.auth.signOut();
+  currentSession = null;
+  showLogin();
+});
+
+async function afterLogin() {
+  showApp();
+  const [catRes, chanRes] = await Promise.all([
+    sbClient.from('expense_categories').select('*').eq('active', true).order('sort_order'),
+    sbClient.from('income_channels').select('*').eq('active', true).order('sort_order'),
+  ]);
+  expenseCategories = catRes.data || [];
+  incomeChannels = chanRes.data || [];
+  populateChannelSelect();
+  resetExpenseForm();
+  document.getElementById('exp-date').value = todayStr();
+  document.getElementById('inc-date').value = todayStr();
+  document.getElementById('recon-month').value = thisMonthStr();
+  document.getElementById('report-month').value = thisMonthStr();
+  loadReconciliation();
+  loadReport();
+}
+
+// ---------- Tabs ----------
+// recon/report reflect data entered elsewhere, so always refresh on open rather than
+// relying on whichever save handler happened to run most recently
+document.querySelectorAll('.tabbar button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tabbar button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
+    document.getElementById('tab-' + btn.dataset.tab).style.display = 'block';
+    if (btn.dataset.tab === 'recon') loadReconciliation();
+    if (btn.dataset.tab === 'report') loadReport();
+  });
+});
+
+// ---------- Add Expense ----------
+function categoryOptionsHtml(selectedId) {
+  return expenseCategories.map(c => `<option value="${c.id}" ${c.id === selectedId ? 'selected' : ''}>${c.label_th}</option>`).join('');
+}
+
+function renderItemsTable() {
+  const tbody = document.getElementById('items-tbody');
+  tbody.innerHTML = expenseItems.map((it, idx) => `
+    <tr class="item-row">
+      <td><input data-idx="${idx}" data-field="item_name" type="text" value="${(it.item_name || '').replace(/"/g, '&quot;')}"></td>
+      <td><input data-idx="${idx}" data-field="quantity" type="number" min="0" step="0.01" value="${it.quantity}"></td>
+      <td><input data-idx="${idx}" data-field="unit_price" type="number" min="0" step="0.01" value="${it.unit_price}"></td>
+      <td><select data-idx="${idx}" data-field="category_id">${categoryOptionsHtml(it.category_id)}</select></td>
+      <td><button data-idx="${idx}" class="remove-item-btn" type="button">✕</button></td>
+    </tr>
+  `).join('');
+
+  tbody.querySelectorAll('input, select').forEach(el => {
+    el.addEventListener('input', () => {
+      const idx = Number(el.dataset.idx);
+      const field = el.dataset.field;
+      expenseItems[idx][field] = (field === 'quantity' || field === 'unit_price') ? Number(el.value) : el.value;
+      updateItemsTotal();
+    });
+  });
+  tbody.querySelectorAll('.remove-item-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      expenseItems.splice(Number(btn.dataset.idx), 1);
+      if (expenseItems.length === 0) addBlankItemRow();
+      renderItemsTable();
+      updateItemsTotal();
+    });
+  });
+  updateItemsTotal();
+}
+
+function updateItemsTotal() {
+  const total = expenseItems.reduce((sum, it) => sum + (Number(it.quantity) || 0) * (Number(it.unit_price) || 0), 0);
+  document.getElementById('items-total').textContent = money(total);
+}
+
+function addBlankItemRow() {
+  expenseItems.push({ item_name: '', quantity: 1, unit_price: 0, category_id: expenseCategories[0]?.id || '' });
+}
+
+function resetExpenseForm() {
+  expenseItems = [];
+  receiptPhotoBlob = null;
+  document.getElementById('receipt-photo-input').value = '';
+  document.getElementById('ocr-status').style.display = 'none';
+  document.getElementById('expense-form').style.display = 'none';
+  document.getElementById('expense-save-banner').style.display = 'none';
+  document.getElementById('exp-vendor').value = '';
+  document.getElementById('exp-note').value = '';
+  document.getElementById('exp-date').value = todayStr();
+}
+
+document.getElementById('manual-entry-btn').addEventListener('click', () => {
+  expenseItems = [];
+  addBlankItemRow();
+  document.getElementById('expense-form').style.display = 'block';
+  renderItemsTable();
+});
+
+document.getElementById('add-item-row-btn').addEventListener('click', () => {
+  addBlankItemRow();
+  renderItemsTable();
+});
+
+// resize image client-side to keep OCR calls fast/cheap, cap longest edge at 1600px
+function downscaleImage(file, maxEdge = 1600, quality = 0.8) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > maxEdge || height > maxEdge) {
+        const scale = maxEdge / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      canvas.toBlob(blob => {
+        URL.revokeObjectURL(url);
+        if (!blob) return reject(new Error('canvas toBlob failed'));
+        resolve(blob);
+      }, 'image/jpeg', quality);
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+document.getElementById('receipt-photo-input').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const ocrStatus = document.getElementById('ocr-status');
+  ocrStatus.style.display = 'block';
+  ocrStatus.textContent = 'กำลังอ่านใบเสร็จ...';
+
+  try {
+    receiptPhotoBlob = await downscaleImage(file);
+    const base64 = await blobToBase64(receiptPhotoBlob);
+
+    const { data, error } = await sbClient.functions.invoke('receipt-ocr', {
+      body: { image_base64: base64, media_type: 'image/jpeg' },
+    });
+
+    if (error || !data || data.ok === false) {
+      ocrStatus.textContent = (data && data.error) || 'อ่านใบเสร็จไม่สำเร็จ กรุณากรอกเอง';
+      expenseItems = [];
+      addBlankItemRow();
+      document.getElementById('expense-form').style.display = 'block';
+      renderItemsTable();
+      return;
+    }
+
+    if (data.vendor_guess) document.getElementById('exp-vendor').value = data.vendor_guess;
+    if (data.expense_date) document.getElementById('exp-date').value = data.expense_date;
+
+    if (!data.items || data.items.length === 0) {
+      ocrStatus.textContent = data.warning || 'อ่านใบเสร็จไม่ชัด กรุณากรอกเอง';
+      expenseItems = [];
+      addBlankItemRow();
+    } else {
+      ocrStatus.textContent = `อ่านได้ ${data.items.length} รายการ (ความมั่นใจ: ${data.confidence}) — ตรวจสอบ/แก้ไขก่อนบันทึก`;
+      expenseItems = data.items.map(it => {
+        const cat = expenseCategories.find(c => c.key === it.category_guess);
+        return {
+          item_name: it.item_name || '',
+          quantity: Number(it.quantity) || 1,
+          unit_price: Number(it.unit_price) || 0,
+          category_id: cat ? cat.id : (expenseCategories[0]?.id || ''),
+        };
+      });
+    }
+    document.getElementById('expense-form').style.display = 'block';
+    renderItemsTable();
+  } catch (err) {
+    console.error(err);
+    ocrStatus.textContent = 'เกิดข้อผิดพลาด กรุณากรอกเอง';
+    expenseItems = [];
+    addBlankItemRow();
+    document.getElementById('expense-form').style.display = 'block';
+    renderItemsTable();
+  }
+});
+
+document.getElementById('save-expense-btn').addEventListener('click', async () => {
+  const banner = document.getElementById('expense-save-banner');
+  banner.style.display = 'none';
+
+  const validItems = expenseItems.filter(it => it.item_name.trim() && it.unit_price > 0 && it.quantity > 0);
+  if (validItems.length === 0) {
+    banner.className = 'banner err';
+    banner.textContent = 'กรอกอย่างน้อย 1 รายการ (ชื่อสินค้า จำนวน ราคา ให้ครบ)';
+    banner.style.display = 'block';
+    return;
+  }
+
+  const saveBtn = document.getElementById('save-expense-btn');
+  saveBtn.disabled = true;
+  try {
+    const { data: expenseRow, error: expenseErr } = await sbClient.from('expenses').insert({
+      expense_date: document.getElementById('exp-date').value || todayStr(),
+      vendor: document.getElementById('exp-vendor').value || null,
+      note: document.getElementById('exp-note').value || null,
+      payment_method: document.getElementById('exp-payment-method').value,
+      source: receiptPhotoBlob ? 'ocr' : 'manual',
+      created_by: currentSession.user.id,
+    }).select('id').single();
+
+    if (expenseErr) throw expenseErr;
+    const expenseId = expenseRow.id;
+
+    if (receiptPhotoBlob) {
+      const path = `${document.getElementById('exp-date').value.slice(0, 7)}/${expenseId}.jpg`;
+      const { error: uploadErr } = await sbClient.storage.from('receipts').upload(path, receiptPhotoBlob, { contentType: 'image/jpeg', upsert: true });
+      if (!uploadErr) {
+        await sbClient.from('expenses').update({ receipt_photo_path: path }).eq('id', expenseId);
+      }
+    }
+
+    const { error: itemsErr } = await sbClient.from('expense_items').insert(
+      validItems.map((it, idx) => ({
+        expense_id: expenseId,
+        category_id: it.category_id,
+        item_name: it.item_name.trim(),
+        quantity: it.quantity,
+        unit_price: it.unit_price,
+        sort_order: idx,
+      }))
+    );
+    if (itemsErr) throw itemsErr;
+
+    banner.className = 'banner ok';
+    banner.textContent = 'บันทึกแล้ว ✓';
+    banner.style.display = 'block';
+    resetExpenseForm();
+    document.getElementById('expense-save-banner').style.display = 'block';
+    document.getElementById('expense-save-banner').className = 'banner ok';
+    document.getElementById('expense-save-banner').textContent = 'บันทึกแล้ว ✓';
+    loadReport();
+  } catch (err) {
+    console.error(err);
+    banner.className = 'banner err';
+    banner.textContent = 'บันทึกไม่สำเร็จ: ' + (err.message || String(err));
+    banner.style.display = 'block';
+  } finally {
+    saveBtn.disabled = false;
+  }
+});
+
+// ---------- Add Income ----------
+function populateChannelSelect() {
+  const sel = document.getElementById('inc-channel');
+  sel.innerHTML = incomeChannels.map(c => `<option value="${c.id}">${c.label_th}</option>`).join('');
+}
+
+document.getElementById('save-income-btn').addEventListener('click', async () => {
+  const banner = document.getElementById('income-save-banner');
+  const amount = Number(document.getElementById('inc-amount').value);
+  if (!amount || amount <= 0) {
+    banner.className = 'banner err';
+    banner.textContent = 'กรอกจำนวนเงินให้ถูกต้อง';
+    banner.style.display = 'block';
+    return;
+  }
+  const btn = document.getElementById('save-income-btn');
+  btn.disabled = true;
+  try {
+    const { error } = await sbClient.from('income_entries').insert({
+      channel_id: document.getElementById('inc-channel').value,
+      entry_date: document.getElementById('inc-date').value || todayStr(),
+      kind: document.getElementById('inc-kind').value,
+      amount,
+      note: document.getElementById('inc-note').value || null,
+      created_by: currentSession.user.id,
+    });
+    if (error) throw error;
+    banner.className = 'banner ok';
+    banner.textContent = 'บันทึกแล้ว ✓';
+    banner.style.display = 'block';
+    document.getElementById('inc-amount').value = '';
+    document.getElementById('inc-note').value = '';
+    loadReconciliation();
+  } catch (err) {
+    console.error(err);
+    banner.className = 'banner err';
+    banner.textContent = 'บันทึกไม่สำเร็จ: ' + (err.message || String(err));
+    banner.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ---------- Reconciliation ----------
+document.getElementById('recon-month').addEventListener('change', loadReconciliation);
+
+async function loadReconciliation() {
+  const month = document.getElementById('recon-month').value;
+  if (!month) return;
+  const start = `${month}-01`;
+  const end = new Date(new Date(start).getFullYear(), new Date(start).getMonth() + 1, 1).toISOString().slice(0, 10);
+
+  const { data, error } = await sbClient.from('income_entries')
+    .select('channel_id, kind, amount')
+    .gte('entry_date', start)
+    .lt('entry_date', end);
+
+  const container = document.getElementById('recon-cards');
+  if (error) {
+    container.innerHTML = `<div class="banner err">โหลดข้อมูลไม่สำเร็จ</div>`;
+    return;
+  }
+
+  container.innerHTML = incomeChannels.map(ch => {
+    const rows = (data || []).filter(r => r.channel_id === ch.id);
+    const expected = rows.filter(r => r.kind === 'expected').reduce((s, r) => s + Number(r.amount), 0);
+    const deposited = rows.filter(r => r.kind === 'deposited').reduce((s, r) => s + Number(r.amount), 0);
+    const diff = deposited - expected;
+    const diffColor = Math.abs(diff) < 0.01 ? 'var(--text-secondary)' : (diff < 0 ? 'var(--danger)' : 'var(--accent)');
+    return `
+      <div style="margin-bottom:14px;">
+        <div style="font-weight:500; margin-bottom:6px;">${ch.label_th}</div>
+        <div class="recon-card"><span class="muted">ยอดตามระบบ</span><span>${money(expected)}</span></div>
+        <div class="recon-card"><span class="muted">ยอดโอนเข้าจริง</span><span>${money(deposited)}</span></div>
+        <div class="recon-card"><span class="muted">ส่วนต่าง</span><span style="color:${diffColor}; font-weight:500;">${money(diff)}</span></div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ---------- Monthly Report ----------
+document.getElementById('report-month').addEventListener('change', loadReport);
+
+async function loadReport() {
+  const month = document.getElementById('report-month').value;
+  if (!month) return;
+  const start = `${month}-01`;
+  const end = new Date(new Date(start).getFullYear(), new Date(start).getMonth() + 1, 1).toISOString().slice(0, 10);
+
+  const [itemsRes, incomeRes] = await Promise.all([
+    sbClient.from('expense_items')
+      .select('category_id, quantity, unit_price, expenses!inner(expense_date)')
+      .gte('expenses.expense_date', start)
+      .lt('expenses.expense_date', end),
+    sbClient.from('income_entries')
+      .select('amount')
+      .eq('kind', 'deposited')
+      .gte('entry_date', start)
+      .lt('entry_date', end),
+  ]);
+
+  const tbody = document.getElementById('report-tbody');
+  if (itemsRes.error) {
+    tbody.innerHTML = `<tr><td colspan="4">โหลดข้อมูลไม่สำเร็จ</td></tr>`;
+    return;
+  }
+
+  const actualByCategory = {};
+  (itemsRes.data || []).forEach(row => {
+    const lineTotal = Number(row.quantity) * Number(row.unit_price);
+    actualByCategory[row.category_id] = (actualByCategory[row.category_id] || 0) + lineTotal;
+  });
+
+  tbody.innerHTML = expenseCategories.map(c => {
+    const actual = actualByCategory[c.id] || 0;
+    if (actual === 0 && c.fixed_cost_model_monthly == null) return '';
+    const model = c.fixed_cost_model_monthly;
+    const diff = model != null ? actual - model : null;
+    return `
+      <tr>
+        <td>${c.label_th}</td>
+        <td>${model != null ? money(model) : '—'}</td>
+        <td>${money(actual)}</td>
+        <td style="color:${diff != null && diff > 0 ? 'var(--danger)' : 'var(--text-secondary)'};">${diff != null ? money(diff) : '—'}</td>
+      </tr>
+    `;
+  }).join('');
+
+  const totalIncome = (incomeRes.data || []).reduce((s, r) => s + Number(r.amount), 0);
+  const totalExpense = Object.values(actualByCategory).reduce((s, v) => s + v, 0);
+  document.getElementById('report-income-summary').textContent =
+    `รายรับ (ยอดโอนเข้าจริง): ${money(totalIncome)}  ·  รายจ่ายรวม: ${money(totalExpense)}  ·  คงเหลือโดยประมาณ: ${money(totalIncome - totalExpense)}`;
+}
+
+init();
+</script>
+</body>
+</html>
