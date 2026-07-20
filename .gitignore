@@ -1,0 +1,6 @@
+*token*.txt
+*key*.txt
+*secret*.txt
+*.env
+.env.*
+supabase/.temp/
