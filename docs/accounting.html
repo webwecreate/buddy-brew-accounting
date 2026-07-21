@@ -64,6 +64,7 @@
     <button data-tab="income">เพิ่มรายรับ</button>
     <button data-tab="recon">กระทบยอด</button>
     <button data-tab="report">รายงานเดือน</button>
+    <button data-tab="assets">ทรัพย์สิน/หนี้</button>
   </div>
 
   <!-- TAB: เพิ่มรายจ่าย -->
@@ -82,12 +83,8 @@
           <div class="field"><label>ร้านค้า</label><input id="exp-vendor" type="text" placeholder="เช่น Makro"></div>
         </div>
         <div class="field">
-          <label>วิธีจ่าย</label>
-          <select id="exp-payment-method">
-            <option value="cash">เงินสด</option>
-            <option value="transfer">โอน</option>
-            <option value="other">อื่นๆ</option>
-          </select>
+          <label>จ่ายจากบัญชี</label>
+          <select id="exp-payment-account"></select>
         </div>
 
         <label>รายการสินค้า</label>
@@ -148,6 +145,87 @@
         <thead><tr><th>หมวด</th><th>ตามโมเดล</th><th>จริง</th><th>ส่วนต่าง</th></tr></thead>
         <tbody id="report-tbody"></tbody>
       </table>
+      <label style="margin-top:10px;">รายจ่ายแยกตามบัญชีที่จ่าย</label>
+      <table>
+        <thead><tr><th>บัญชี</th><th>ยอดจ่าย</th></tr></thead>
+        <tbody id="report-accounts-tbody"></tbody>
+      </table>
+      <div id="report-assets-summary" class="muted" style="margin-top:14px;"></div>
+      <label style="margin-top:10px;">หนี้สินคงค้าง แยกตามเจ้าหนี้</label>
+      <table>
+        <thead><tr><th>เจ้าหนี้</th><th>ประเภท</th><th>คงเหลือ</th></tr></thead>
+        <tbody id="report-liabilities-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB: ทรัพย์สิน/หนี้ -->
+  <div id="tab-assets" class="tab-panel" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <label style="margin:0;">ทรัพย์สิน</label>
+        <button id="toggle-asset-form-btn" type="button">+ เพิ่มทรัพย์สิน</button>
+      </div>
+      <div id="asset-form" style="display:none; margin-bottom:12px;">
+        <div class="field"><label>ชื่อ</label><input id="asset-name" type="text" placeholder="เช่น เครื่องชงกาแฟ"></div>
+        <div class="field">
+          <label>หมวด</label>
+          <select id="asset-category">
+            <option value="equipment">อุปกรณ์</option>
+            <option value="decor">ตกแต่ง</option>
+          </select>
+        </div>
+        <div class="row">
+          <div class="field"><label>ราคาซื้อ (บาท)</label><input id="asset-price" type="number" min="0" step="0.01"></div>
+          <div class="field"><label>วันที่ซื้อ</label><input id="asset-date" type="date"></div>
+        </div>
+        <div class="field"><label>อายุใช้งาน (เดือน)</label><input id="asset-life" type="number" min="1" value="24"></div>
+        <div class="field"><label>โน้ต (ถ้ามี)</label><textarea id="asset-note" rows="2"></textarea></div>
+        <button id="save-asset-btn" class="primary" style="width:100%;">บันทึก</button>
+        <div id="asset-save-banner" style="display:none; margin-top:10px;"></div>
+      </div>
+      <table>
+        <thead><tr><th>ชื่อ</th><th>หมวด</th><th>ราคาซื้อ</th><th>ค่าเสื่อมสะสม</th><th>คงเหลือ</th><th>สถานะ</th><th></th></tr></thead>
+        <tbody id="asset-list-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <label style="margin:0;">หนี้สิน</label>
+        <button id="toggle-liability-form-btn" type="button">+ เพิ่มหนี้สิน</button>
+      </div>
+      <div id="liability-form" style="display:none; margin-bottom:12px;">
+        <div class="field">
+          <label>ประเภทเจ้าหนี้</label>
+          <select id="liab-creditor-type">
+            <option value="vendor">ผู้ขาย (vendor)</option>
+            <option value="owner">เจ้าของร้าน</option>
+            <option value="bank">ธนาคาร</option>
+            <option value="other">อื่นๆ</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>ชื่อเจ้าหนี้</label>
+          <input id="liab-creditor-name" type="text" list="creditor-name-list" placeholder="เช่น เจ้าของคนที่ 1">
+          <datalist id="creditor-name-list"></datalist>
+        </div>
+        <div class="field">
+          <label>ผูกกับทรัพย์สิน (ถ้ามี)</label>
+          <select id="liab-asset-link"><option value="">— ไม่ผูกกับทรัพย์สิน —</option></select>
+        </div>
+        <div class="row">
+          <div class="field"><label>ยอดตั้งต้น (บาท)</label><input id="liab-amount" type="number" min="0" step="0.01"></div>
+          <div class="field"><label>วันที่เริ่ม</label><input id="liab-start-date" type="date"></div>
+        </div>
+        <div class="field"><label>โน้ต (ถ้ามี)</label><textarea id="liab-note" rows="2"></textarea></div>
+        <button id="save-liability-btn" class="primary" style="width:100%;">บันทึก</button>
+        <div id="liability-save-banner" style="display:none; margin-top:10px;"></div>
+      </div>
+      <table>
+        <thead><tr><th>เจ้าหนี้</th><th>ยอดตั้งต้น</th><th>จ่ายแล้ว</th><th>คงเหลือ</th><th>สถานะ</th><th></th></tr></thead>
+        <tbody id="liability-list-tbody"></tbody>
+      </table>
     </div>
   </div>
 </div>
@@ -160,6 +238,7 @@ const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentSession = null;
 let expenseCategories = [];
 let incomeChannels = [];
+let paymentAccounts = [];
 let expenseItems = []; // draft rows for the expense form: {item_name, quantity, unit_price, category_id}
 let receiptPhotoBlob = null;
 
@@ -208,13 +287,16 @@ document.getElementById('logout-btn').addEventListener('click', async () => {
 
 async function afterLogin() {
   showApp();
-  const [catRes, chanRes] = await Promise.all([
+  const [catRes, chanRes, payAcctRes] = await Promise.all([
     sbClient.from('expense_categories').select('*').eq('active', true).order('sort_order'),
     sbClient.from('income_channels').select('*').eq('active', true).order('sort_order'),
+    sbClient.from('payment_accounts').select('*').eq('active', true).order('sort_order'),
   ]);
   expenseCategories = catRes.data || [];
   incomeChannels = chanRes.data || [];
+  paymentAccounts = payAcctRes.data || [];
   populateChannelSelect();
+  populatePaymentAccountSelect();
   resetExpenseForm();
   document.getElementById('exp-date').value = todayStr();
   document.getElementById('inc-date').value = todayStr();
@@ -235,10 +317,16 @@ document.querySelectorAll('.tabbar button').forEach(btn => {
     document.getElementById('tab-' + btn.dataset.tab).style.display = 'block';
     if (btn.dataset.tab === 'recon') loadReconciliation();
     if (btn.dataset.tab === 'report') loadReport();
+    if (btn.dataset.tab === 'assets') loadAssetsLiabilities();
   });
 });
 
 // ---------- Add Expense ----------
+function populatePaymentAccountSelect() {
+  const sel = document.getElementById('exp-payment-account');
+  sel.innerHTML = paymentAccounts.map(a => `<option value="${a.id}">${a.label_th}</option>`).join('');
+}
+
 function categoryOptionsHtml(selectedId) {
   return expenseCategories.map(c => `<option value="${c.id}" ${c.id === selectedId ? 'selected' : ''}>${c.label_th}</option>`).join('');
 }
@@ -417,7 +505,7 @@ document.getElementById('save-expense-btn').addEventListener('click', async () =
       expense_date: document.getElementById('exp-date').value || todayStr(),
       vendor: document.getElementById('exp-vendor').value || null,
       note: document.getElementById('exp-note').value || null,
-      payment_method: document.getElementById('exp-payment-method').value,
+      payment_account_id: document.getElementById('exp-payment-account').value || null,
       source: receiptPhotoBlob ? 'ocr' : 'manual',
       created_by: currentSession.user.id,
     }).select('id').single();
@@ -552,7 +640,7 @@ async function loadReport() {
   const start = `${month}-01`;
   const end = new Date(new Date(start).getFullYear(), new Date(start).getMonth() + 1, 1).toISOString().slice(0, 10);
 
-  const [itemsRes, incomeRes] = await Promise.all([
+  const [itemsRes, incomeRes, expensesByAccountRes] = await Promise.all([
     sbClient.from('expense_items')
       .select('category_id, quantity, unit_price, expenses!inner(expense_date)')
       .gte('expenses.expense_date', start)
@@ -562,6 +650,10 @@ async function loadReport() {
       .eq('kind', 'deposited')
       .gte('entry_date', start)
       .lt('entry_date', end),
+    sbClient.from('expenses')
+      .select('amount, payment_account_id')
+      .gte('expense_date', start)
+      .lt('expense_date', end),
   ]);
 
   const tbody = document.getElementById('report-tbody');
@@ -595,7 +687,238 @@ async function loadReport() {
   const totalExpense = Object.values(actualByCategory).reduce((s, v) => s + v, 0);
   document.getElementById('report-income-summary').textContent =
     `รายรับ (ยอดโอนเข้าจริง): ${money(totalIncome)}  ·  รายจ่ายรวม: ${money(totalExpense)}  ·  คงเหลือโดยประมาณ: ${money(totalIncome - totalExpense)}`;
+
+  const byAccount = {};
+  (expensesByAccountRes.data || []).forEach(row => {
+    const key = row.payment_account_id || '_none';
+    byAccount[key] = (byAccount[key] || 0) + Number(row.amount);
+  });
+  const accountsTbody = document.getElementById('report-accounts-tbody');
+  const accountRows = Object.entries(byAccount);
+  accountsTbody.innerHTML = accountRows.length
+    ? accountRows.map(([id, total]) => {
+        const acct = paymentAccounts.find(a => a.id === id);
+        return `<tr><td>${acct ? acct.label_th : 'ไม่ระบุบัญชี'}</td><td>${money(total)}</td></tr>`;
+      }).join('')
+    : `<tr><td colspan="2" class="muted">ไม่มีรายจ่ายเดือนนี้</td></tr>`;
+
+  // asset/liability figures are point-in-time balances, not filtered by the report's selected month
+  const [assetsForReportRes, liabForReportRes] = await Promise.all([
+    sbClient.from('assets').select('*').eq('status', 'active'),
+    sbClient.from('liabilities').select('*').eq('status', 'open'),
+  ]);
+  const totalBookValue = (assetsForReportRes.data || []).reduce((s, a) => s + assetDepreciation(a).bookValue, 0);
+  document.getElementById('report-assets-summary').textContent = `มูลค่าทรัพย์สินคงเหลือ (สุทธิ ณ วันนี้): ${money(totalBookValue)}`;
+
+  const byCreditor = {};
+  (liabForReportRes.data || []).forEach(l => {
+    const remaining = Number(l.original_amount) - Number(l.paid_amount);
+    if (!byCreditor[l.creditor_name]) byCreditor[l.creditor_name] = { type: l.creditor_type, remaining: 0 };
+    byCreditor[l.creditor_name].remaining += remaining;
+  });
+  const liabTbody = document.getElementById('report-liabilities-tbody');
+  const creditorEntries = Object.entries(byCreditor);
+  liabTbody.innerHTML = creditorEntries.length
+    ? creditorEntries.map(([name, v]) => `<tr><td>${name}</td><td>${creditorTypeLabel[v.type] || v.type}</td><td>${money(v.remaining)}</td></tr>`).join('')
+    : `<tr><td colspan="3" class="muted">ไม่มีหนี้ค้าง</td></tr>`;
 }
+
+// ---------- Assets & Liabilities ----------
+let assetsList = [];
+let liabilitiesList = [];
+
+const creditorTypeLabel = { vendor: 'ผู้ขาย', owner: 'เจ้าของร้าน', bank: 'ธนาคาร', other: 'อื่นๆ' };
+const assetCategoryLabel = { equipment: 'อุปกรณ์', decor: 'ตกแต่ง' };
+
+// pure function of price/date/useful-life, no child table to aggregate, so computed at
+// display time rather than stored - unlike liabilities.paid_amount, which IS trigger-maintained
+// in the DB because it aggregates the liability_payments child table
+function assetDepreciation(asset, asOfDate = new Date()) {
+  const start = new Date(asset.purchase_date);
+  const end = asset.status === 'disposed' && asset.disposed_date ? new Date(asset.disposed_date) : asOfDate;
+  const monthsElapsed = Math.max(0, Math.min(asset.useful_life_months,
+    (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth())));
+  const monthlyDep = asset.purchase_price / asset.useful_life_months;
+  const accumulated = monthlyDep * monthsElapsed;
+  return { accumulated, bookValue: asset.purchase_price - accumulated };
+}
+
+document.getElementById('toggle-asset-form-btn').addEventListener('click', () => {
+  const form = document.getElementById('asset-form');
+  form.style.display = form.style.display === 'none' ? 'block' : 'none';
+});
+document.getElementById('toggle-liability-form-btn').addEventListener('click', () => {
+  const form = document.getElementById('liability-form');
+  form.style.display = form.style.display === 'none' ? 'block' : 'none';
+});
+
+async function loadAssetsLiabilities() {
+  const [assetsRes, liabRes] = await Promise.all([
+    sbClient.from('assets').select('*').order('purchase_date', { ascending: false }),
+    sbClient.from('liabilities').select('*').order('start_date', { ascending: false }),
+  ]);
+  assetsList = assetsRes.data || [];
+  liabilitiesList = liabRes.data || [];
+  renderAssetList();
+  renderLiabilityList();
+  populateAssetLinkSelect();
+  populateCreditorNameList();
+}
+
+function renderAssetList() {
+  const tbody = document.getElementById('asset-list-tbody');
+  tbody.innerHTML = assetsList.map(a => {
+    const { accumulated, bookValue } = assetDepreciation(a);
+    return `
+      <tr>
+        <td>${a.name}</td>
+        <td>${assetCategoryLabel[a.category] || a.category}</td>
+        <td>${money(a.purchase_price)}</td>
+        <td>${money(accumulated)}</td>
+        <td>${money(bookValue)}</td>
+        <td>${a.status === 'disposed' ? 'เลิกใช้' : 'ใช้งาน'}</td>
+        <td>${a.status === 'active' ? `<button data-id="${a.id}" class="dispose-asset-btn" type="button">ปิดใช้งาน</button>` : ''}</td>
+      </tr>
+    `;
+  }).join('');
+  tbody.querySelectorAll('.dispose-asset-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      await sbClient.from('assets').update({ status: 'disposed', disposed_date: todayStr() }).eq('id', btn.dataset.id);
+      loadAssetsLiabilities();
+    });
+  });
+}
+
+function populateAssetLinkSelect() {
+  const sel = document.getElementById('liab-asset-link');
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">— ไม่ผูกกับทรัพย์สิน —</option>' +
+    assetsList.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+  sel.value = prev;
+}
+
+function populateCreditorNameList() {
+  const names = [...new Set(liabilitiesList.map(l => l.creditor_name))];
+  document.getElementById('creditor-name-list').innerHTML = names.map(n => `<option value="${n.replace(/"/g, '&quot;')}">`).join('');
+}
+
+function renderLiabilityList() {
+  const tbody = document.getElementById('liability-list-tbody');
+  tbody.innerHTML = liabilitiesList.map(l => {
+    const remaining = Number(l.original_amount) - Number(l.paid_amount);
+    return `
+      <tr>
+        <td>${creditorTypeLabel[l.creditor_type] || l.creditor_type}: ${l.creditor_name}</td>
+        <td>${money(l.original_amount)}</td>
+        <td>${money(l.paid_amount)}</td>
+        <td>${money(remaining)}</td>
+        <td>${l.status === 'paid_off' ? 'ปิดแล้ว' : 'ผ่อนอยู่'}</td>
+        <td>${l.status === 'open' ? `<button data-id="${l.id}" class="record-payment-btn" type="button">+ บันทึกจ่าย</button>` : ''}</td>
+      </tr>
+      <tr id="payment-row-${l.id}" style="display:none;"><td colspan="6">
+        <div class="row" style="margin-top:6px; align-items:end;">
+          <div class="field" style="margin-bottom:0;"><input id="payment-date-${l.id}" type="date" value="${todayStr()}"></div>
+          <div class="field" style="margin-bottom:0;"><input id="payment-amount-${l.id}" type="number" min="0" step="0.01" placeholder="จำนวนเงิน"></div>
+          <button data-id="${l.id}" class="save-payment-btn primary" type="button" style="flex:0 0 auto; height:38px;">บันทึก</button>
+        </div>
+      </td></tr>
+    `;
+  }).join('');
+
+  tbody.querySelectorAll('.record-payment-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const row = document.getElementById('payment-row-' + btn.dataset.id);
+      row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
+    });
+  });
+  tbody.querySelectorAll('.save-payment-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.id;
+      const amount = Number(document.getElementById('payment-amount-' + id).value);
+      const date = document.getElementById('payment-date-' + id).value || todayStr();
+      if (!amount || amount <= 0) return;
+      btn.disabled = true;
+      await sbClient.from('liability_payments').insert({
+        liability_id: id, payment_date: date, amount, created_by: currentSession.user.id,
+      });
+      loadAssetsLiabilities();
+    });
+  });
+}
+
+document.getElementById('save-asset-btn').addEventListener('click', async () => {
+  const banner = document.getElementById('asset-save-banner');
+  const name = document.getElementById('asset-name').value.trim();
+  const price = Number(document.getElementById('asset-price').value);
+  const date = document.getElementById('asset-date').value;
+  if (!name || !price || price <= 0 || !date) {
+    banner.className = 'banner err';
+    banner.textContent = 'กรอกชื่อ ราคา และวันที่ซื้อให้ครบ';
+    banner.style.display = 'block';
+    return;
+  }
+  try {
+    const { error } = await sbClient.from('assets').insert({
+      name,
+      category: document.getElementById('asset-category').value,
+      purchase_price: price,
+      purchase_date: date,
+      useful_life_months: Number(document.getElementById('asset-life').value) || 24,
+      note: document.getElementById('asset-note').value || null,
+      created_by: currentSession.user.id,
+    });
+    if (error) throw error;
+    banner.className = 'banner ok';
+    banner.textContent = 'บันทึกแล้ว ✓';
+    banner.style.display = 'block';
+    document.getElementById('asset-name').value = '';
+    document.getElementById('asset-price').value = '';
+    document.getElementById('asset-note').value = '';
+    loadAssetsLiabilities();
+  } catch (err) {
+    console.error(err);
+    banner.className = 'banner err';
+    banner.textContent = 'บันทึกไม่สำเร็จ: ' + (err.message || String(err));
+    banner.style.display = 'block';
+  }
+});
+
+document.getElementById('save-liability-btn').addEventListener('click', async () => {
+  const banner = document.getElementById('liability-save-banner');
+  const creditorName = document.getElementById('liab-creditor-name').value.trim();
+  const amount = Number(document.getElementById('liab-amount').value);
+  const startDate = document.getElementById('liab-start-date').value;
+  if (!creditorName || !amount || amount <= 0 || !startDate) {
+    banner.className = 'banner err';
+    banner.textContent = 'กรอกชื่อเจ้าหนี้ ยอดตั้งต้น และวันที่เริ่มให้ครบ';
+    banner.style.display = 'block';
+    return;
+  }
+  try {
+    const { error } = await sbClient.from('liabilities').insert({
+      creditor_type: document.getElementById('liab-creditor-type').value,
+      creditor_name: creditorName,
+      asset_id: document.getElementById('liab-asset-link').value || null,
+      original_amount: amount,
+      start_date: startDate,
+      note: document.getElementById('liab-note').value || null,
+      created_by: currentSession.user.id,
+    });
+    if (error) throw error;
+    banner.className = 'banner ok';
+    banner.textContent = 'บันทึกแล้ว ✓';
+    banner.style.display = 'block';
+    document.getElementById('liab-creditor-name').value = '';
+    document.getElementById('liab-amount').value = '';
+    document.getElementById('liab-note').value = '';
+    loadAssetsLiabilities();
+  } catch (err) {
+    console.error(err);
+    banner.className = 'banner err';
+    banner.textContent = 'บันทึกไม่สำเร็จ: ' + (err.message || String(err));
+    banner.style.display = 'block';
+  }
+});
 
 init();
 </script>
