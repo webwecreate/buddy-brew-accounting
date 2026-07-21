@@ -303,12 +303,15 @@
         </div>
         <div class="field"><label>อัตราแปลง (1 หน่วยซื้อ = กี่หน่วยใช้งาน)</label><input id="product-conversion" type="number" min="0.0001" step="any" value="1"></div>
         <div class="field"><label>โน้ต (ถ้ามี)</label><textarea id="product-note" rows="2"></textarea></div>
-        <button id="save-product-btn" class="primary" style="width:100%;">บันทึก</button>
+        <div class="row">
+          <button id="save-product-btn" class="primary" style="flex:1;">บันทึก</button>
+          <button id="cancel-product-edit-btn" type="button" style="display:none; flex:0 0 auto;">ยกเลิก</button>
+        </div>
         <div id="product-save-banner" style="display:none; margin-top:10px;"></div>
       </div>
       <div class="table-scroll">
         <table>
-          <thead><tr><th>ชื่อ</th><th>หน่วยซื้อ → ใช้งาน</th><th>อัตราแปลง</th><th>ราคาล่าสุด/หน่วยใช้งาน</th></tr></thead>
+          <thead><tr><th>ชื่อ</th><th>หน่วยซื้อ → ใช้งาน</th><th>อัตราแปลง</th><th>ราคาล่าสุด/หน่วยใช้งาน</th><th></th></tr></thead>
           <tbody id="product-list-tbody"></tbody>
         </table>
       </div>
@@ -1149,10 +1152,45 @@ async function loadExpenseList() {
 }
 
 // ---------- Products (canonical names + unit conversion) ----------
+let editingProductId = null;
+
+function resetProductForm() {
+  editingProductId = null;
+  document.getElementById('product-name').value = '';
+  document.getElementById('product-category').value = '';
+  document.getElementById('product-purchase-unit').value = '';
+  document.getElementById('product-usage-unit').value = '';
+  document.getElementById('product-conversion').value = '1';
+  document.getElementById('product-note').value = '';
+  document.getElementById('save-product-btn').textContent = 'บันทึก';
+  document.getElementById('cancel-product-edit-btn').style.display = 'none';
+}
+
 document.getElementById('toggle-product-form-btn').addEventListener('click', () => {
   const form = document.getElementById('product-form');
-  form.style.display = form.style.display === 'none' ? 'block' : 'none';
+  const opening = form.style.display === 'none';
+  if (opening) resetProductForm();
+  form.style.display = opening ? 'block' : 'none';
 });
+
+document.getElementById('cancel-product-edit-btn').addEventListener('click', () => {
+  resetProductForm();
+  document.getElementById('product-form').style.display = 'none';
+});
+
+function startEditProduct(product) {
+  editingProductId = product.id;
+  document.getElementById('product-name').value = product.name;
+  document.getElementById('product-category').value = product.category_id || '';
+  document.getElementById('product-purchase-unit').value = product.purchase_unit_label;
+  document.getElementById('product-usage-unit').value = product.usage_unit_label;
+  document.getElementById('product-conversion').value = product.conversion_qty;
+  document.getElementById('product-note').value = product.note || '';
+  document.getElementById('save-product-btn').textContent = 'บันทึกการแก้ไข';
+  document.getElementById('cancel-product-edit-btn').style.display = 'inline-block';
+  document.getElementById('product-form').style.display = 'block';
+  document.getElementById('product-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 
 function populateProductCategorySelect() {
   document.getElementById('product-category').innerHTML = categoryOptionsHtml(null);
@@ -1182,8 +1220,15 @@ async function loadProducts() {
   document.getElementById('product-list-tbody').innerHTML = productsList.map(p => {
     const latestPrice = latestByProduct[p.id];
     const perUsage = latestPrice != null ? money(latestPrice / p.conversion_qty) + ' / ' + p.usage_unit_label : '—';
-    return `<tr><td>${p.name}</td><td>${p.purchase_unit_label} → ${p.usage_unit_label}</td><td>${p.conversion_qty}</td><td>${perUsage}</td></tr>`;
+    return `<tr><td>${p.name}</td><td>${p.purchase_unit_label} → ${p.usage_unit_label}</td><td>${p.conversion_qty}</td><td>${perUsage}</td><td><button data-id="${p.id}" class="edit-product-btn" type="button">แก้ไข</button></td></tr>`;
   }).join('');
+
+  document.querySelectorAll('.edit-product-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const product = productsList.find(p => p.id === btn.dataset.id);
+      if (product) startEditProduct(product);
+    });
+  });
 
   populateProductLinkSelect();
   populateItemNameDatalist();
@@ -1208,25 +1253,25 @@ document.getElementById('save-product-btn').addEventListener('click', async () =
     banner.style.display = 'block';
     return;
   }
+  const payload = {
+    name,
+    category_id: document.getElementById('product-category').value || null,
+    purchase_unit_label: purchaseUnit,
+    usage_unit_label: usageUnit,
+    conversion_qty: conversion,
+    note: document.getElementById('product-note').value || null,
+  };
+  const wasEditing = !!editingProductId;
   try {
-    const { error } = await sbClient.from('products').insert({
-      name,
-      category_id: document.getElementById('product-category').value || null,
-      purchase_unit_label: purchaseUnit,
-      usage_unit_label: usageUnit,
-      conversion_qty: conversion,
-      note: document.getElementById('product-note').value || null,
-      created_by: currentSession.user.id,
-    });
+    const { error } = editingProductId
+      ? await sbClient.from('products').update(payload).eq('id', editingProductId)
+      : await sbClient.from('products').insert({ ...payload, created_by: currentSession.user.id });
     if (error) throw error;
     banner.className = 'banner ok';
     banner.textContent = 'บันทึกแล้ว ✓';
     banner.style.display = 'block';
-    document.getElementById('product-name').value = '';
-    document.getElementById('product-purchase-unit').value = '';
-    document.getElementById('product-usage-unit').value = '';
-    document.getElementById('product-conversion').value = '1';
-    document.getElementById('product-note').value = '';
+    resetProductForm();
+    if (wasEditing) document.getElementById('product-form').style.display = 'none';
     loadProducts();
     populateItemNameDatalist();
   } catch (err) {
