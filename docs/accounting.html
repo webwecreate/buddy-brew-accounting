@@ -75,6 +75,7 @@
     <button data-tab="recon">กระทบยอด</button>
     <button data-tab="report">รายงานเดือน</button>
     <button data-tab="assets">ทรัพย์สิน/หนี้</button>
+    <button data-tab="products">สินค้า</button>
   </div>
 
   <!-- TAB: เพิ่มรายจ่าย -->
@@ -98,6 +99,7 @@
         </div>
 
         <label>รายการสินค้า</label>
+        <datalist id="product-name-list"></datalist>
         <div class="table-scroll">
           <table>
             <thead><tr><th>ชื่อสินค้า</th><th style="width:52px;">จำนวน</th><th style="width:76px;">ราคา/หน่วย</th><th>หมวด</th><th></th></tr></thead>
@@ -281,6 +283,48 @@
       </div>
     </div>
   </div>
+
+  <!-- TAB: สินค้า -->
+  <div id="tab-products" class="tab-panel" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <label style="margin:0;">สินค้า</label>
+        <button id="toggle-product-form-btn" type="button">+ เพิ่มสินค้า</button>
+      </div>
+      <div id="product-form" style="display:none; margin-bottom:12px;">
+        <div class="field"><label>ชื่อสินค้า</label><input id="product-name" type="text" placeholder="เช่น น้ำดื่มยินดี 1500ml"></div>
+        <div class="field">
+          <label>หมวดหมู่</label>
+          <select id="product-category"></select>
+        </div>
+        <div class="row">
+          <div class="field"><label>หน่วยที่ซื้อ</label><input id="product-purchase-unit" type="text" placeholder="เช่น แพ็ค (6 ขวด)"></div>
+          <div class="field"><label>หน่วยที่ใช้งาน</label><input id="product-usage-unit" type="text" placeholder="เช่น ขวด, กรัม, มล."></div>
+        </div>
+        <div class="field"><label>อัตราแปลง (1 หน่วยซื้อ = กี่หน่วยใช้งาน)</label><input id="product-conversion" type="number" min="0.0001" step="any" value="1"></div>
+        <div class="field"><label>โน้ต (ถ้ามี)</label><textarea id="product-note" rows="2"></textarea></div>
+        <button id="save-product-btn" class="primary" style="width:100%;">บันทึก</button>
+        <div id="product-save-banner" style="display:none; margin-top:10px;"></div>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>ชื่อ</th><th>หน่วยซื้อ → ใช้งาน</th><th>อัตราแปลง</th><th>ราคาล่าสุด/หน่วยใช้งาน</th></tr></thead>
+          <tbody id="product-list-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <label>รายชื่อที่ยังไม่ผูกกับสินค้า</label>
+      <p class="muted" style="margin:4px 0 10px;">รายการรายจ่ายที่บันทึกไว้แต่ชื่อยังไม่ตรงกับสินค้าไหนเป๊ะ (เช่น OCR อ่านมาคนละชื่อ) — เลือกแล้วผูกกับสินค้าที่มีอยู่ได้</p>
+      <div id="unlinked-items-container"></div>
+      <div class="row" style="margin-top:10px;">
+        <select id="link-to-product-select"><option value="">เลือกสินค้าที่จะผูก</option></select>
+        <button id="link-selected-btn" class="primary" type="button" style="flex:0 0 auto;">ผูกรายการที่เลือก</button>
+      </div>
+      <div id="link-save-banner" style="display:none; margin-top:10px;"></div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -292,6 +336,7 @@ let currentSession = null;
 let expenseCategories = [];
 let incomeChannels = [];
 let paymentAccounts = [];
+let productsList = [];
 let expenseItems = []; // draft rows for the expense form: {item_name, quantity, unit_price, category_id}
 let receiptPhotoBlob = null;
 
@@ -340,17 +385,21 @@ document.getElementById('logout-btn').addEventListener('click', async () => {
 
 async function afterLogin() {
   showApp();
-  const [catRes, chanRes, payAcctRes] = await Promise.all([
+  const [catRes, chanRes, payAcctRes, productsRes] = await Promise.all([
     sbClient.from('expense_categories').select('*').eq('active', true).order('sort_order'),
     sbClient.from('income_channels').select('*').eq('active', true).order('sort_order'),
     sbClient.from('payment_accounts').select('*').eq('active', true).order('sort_order'),
+    sbClient.from('products').select('*').eq('active', true).order('name'),
   ]);
   expenseCategories = catRes.data || [];
   incomeChannels = chanRes.data || [];
   paymentAccounts = payAcctRes.data || [];
+  productsList = productsRes.data || [];
   populateChannelSelect();
   populatePaymentAccountSelect();
   populateExpenseListFilters();
+  populateProductCategorySelect();
+  populateItemNameDatalist();
   resetExpenseForm();
   document.getElementById('exp-date').value = todayStr();
   document.getElementById('inc-date').value = todayStr();
@@ -374,6 +423,7 @@ document.querySelectorAll('.tabbar button').forEach(btn => {
     if (btn.dataset.tab === 'report') loadReport();
     if (btn.dataset.tab === 'assets') loadAssetsLiabilities();
     if (btn.dataset.tab === 'expense-list') loadExpenseList();
+    if (btn.dataset.tab === 'products') loadProducts();
   });
 });
 
@@ -391,7 +441,7 @@ function renderItemsTable() {
   const tbody = document.getElementById('items-tbody');
   tbody.innerHTML = expenseItems.map((it, idx) => `
     <tr class="item-row">
-      <td><input data-idx="${idx}" data-field="item_name" type="text" value="${(it.item_name || '').replace(/"/g, '&quot;')}"></td>
+      <td><input data-idx="${idx}" data-field="item_name" type="text" list="product-name-list" value="${(it.item_name || '').replace(/"/g, '&quot;')}"></td>
       <td><input data-idx="${idx}" data-field="quantity" type="number" min="0" step="0.01" value="${it.quantity}"></td>
       <td><input data-idx="${idx}" data-field="unit_price" type="number" min="0" step="0.01" value="${it.unit_price}"></td>
       <td><select data-idx="${idx}" data-field="category_id">${categoryOptionsHtml(it.category_id)}</select></td>
@@ -578,14 +628,19 @@ document.getElementById('save-expense-btn').addEventListener('click', async () =
     }
 
     const { error: itemsErr } = await sbClient.from('expense_items').insert(
-      validItems.map((it, idx) => ({
-        expense_id: expenseId,
-        category_id: it.category_id,
-        item_name: it.item_name.trim(),
-        quantity: it.quantity,
-        unit_price: it.unit_price,
-        sort_order: idx,
-      }))
+      validItems.map((it, idx) => {
+        const trimmedName = it.item_name.trim();
+        const matchedProduct = productsList.find(p => p.name.trim() === trimmedName);
+        return {
+          expense_id: expenseId,
+          category_id: it.category_id,
+          item_name: trimmedName,
+          quantity: it.quantity,
+          unit_price: it.unit_price,
+          sort_order: idx,
+          product_id: matchedProduct ? matchedProduct.id : null,
+        };
+      })
     );
     if (itemsErr) throw itemsErr;
 
@@ -1092,6 +1147,160 @@ async function loadExpenseList() {
     });
   });
 }
+
+// ---------- Products (canonical names + unit conversion) ----------
+document.getElementById('toggle-product-form-btn').addEventListener('click', () => {
+  const form = document.getElementById('product-form');
+  form.style.display = form.style.display === 'none' ? 'block' : 'none';
+});
+
+function populateProductCategorySelect() {
+  document.getElementById('product-category').innerHTML = categoryOptionsHtml(null);
+}
+
+function populateItemNameDatalist() {
+  document.getElementById('product-name-list').innerHTML =
+    productsList.map(p => `<option value="${p.name.replace(/"/g, '&quot;')}">`).join('');
+}
+
+async function loadProducts() {
+  const { data: products } = await sbClient.from('products').select('*').eq('active', true).order('name');
+  productsList = products || [];
+
+  // latest linked expense_item per product, to show a real "price per usage unit" example
+  const latestByProduct = {};
+  if (productsList.length) {
+    const { data: linkedItems } = await sbClient.from('expense_items')
+      .select('product_id, unit_price, expenses!inner(expense_date)')
+      .not('product_id', 'is', null)
+      .order('expense_date', { foreignTable: 'expenses', ascending: false });
+    (linkedItems || []).forEach(row => {
+      if (!(row.product_id in latestByProduct)) latestByProduct[row.product_id] = Number(row.unit_price);
+    });
+  }
+
+  document.getElementById('product-list-tbody').innerHTML = productsList.map(p => {
+    const latestPrice = latestByProduct[p.id];
+    const perUsage = latestPrice != null ? money(latestPrice / p.conversion_qty) + ' / ' + p.usage_unit_label : '—';
+    return `<tr><td>${p.name}</td><td>${p.purchase_unit_label} → ${p.usage_unit_label}</td><td>${p.conversion_qty}</td><td>${perUsage}</td></tr>`;
+  }).join('');
+
+  populateProductLinkSelect();
+  populateItemNameDatalist();
+  await loadUnlinkedItems();
+}
+
+function populateProductLinkSelect() {
+  const sel = document.getElementById('link-to-product-select');
+  sel.innerHTML = '<option value="">เลือกสินค้าที่จะผูก</option>' +
+    productsList.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+}
+
+document.getElementById('save-product-btn').addEventListener('click', async () => {
+  const banner = document.getElementById('product-save-banner');
+  const name = document.getElementById('product-name').value.trim();
+  const purchaseUnit = document.getElementById('product-purchase-unit').value.trim();
+  const usageUnit = document.getElementById('product-usage-unit').value.trim();
+  const conversion = Number(document.getElementById('product-conversion').value);
+  if (!name || !purchaseUnit || !usageUnit || !conversion || conversion <= 0) {
+    banner.className = 'banner err';
+    banner.textContent = 'กรอกชื่อ หน่วยที่ซื้อ หน่วยที่ใช้งาน และอัตราแปลง (มากกว่า 0) ให้ครบ';
+    banner.style.display = 'block';
+    return;
+  }
+  try {
+    const { error } = await sbClient.from('products').insert({
+      name,
+      category_id: document.getElementById('product-category').value || null,
+      purchase_unit_label: purchaseUnit,
+      usage_unit_label: usageUnit,
+      conversion_qty: conversion,
+      note: document.getElementById('product-note').value || null,
+      created_by: currentSession.user.id,
+    });
+    if (error) throw error;
+    banner.className = 'banner ok';
+    banner.textContent = 'บันทึกแล้ว ✓';
+    banner.style.display = 'block';
+    document.getElementById('product-name').value = '';
+    document.getElementById('product-purchase-unit').value = '';
+    document.getElementById('product-usage-unit').value = '';
+    document.getElementById('product-conversion').value = '1';
+    document.getElementById('product-note').value = '';
+    loadProducts();
+    populateItemNameDatalist();
+  } catch (err) {
+    console.error(err);
+    banner.className = 'banner err';
+    banner.textContent = 'บันทึกไม่สำเร็จ: ' + (err.message || String(err));
+    banner.style.display = 'block';
+  }
+});
+
+async function loadUnlinkedItems() {
+  const container = document.getElementById('unlinked-items-container');
+  const { data, error } = await sbClient.from('expense_items')
+    .select('item_name, quantity, unit_price')
+    .is('product_id', null);
+
+  if (error) {
+    container.innerHTML = `<div class="banner err">โหลดข้อมูลไม่สำเร็จ</div>`;
+    return;
+  }
+
+  const byName = {};
+  (data || []).forEach(r => {
+    const key = r.item_name.trim();
+    if (!byName[key]) byName[key] = { count: 0, total: 0 };
+    byName[key].count += 1;
+    byName[key].total += Number(r.quantity) * Number(r.unit_price);
+  });
+
+  const names = Object.keys(byName).sort((a, b) => a.localeCompare(b, 'th'));
+  if (names.length === 0) {
+    container.innerHTML = `<p class="muted" style="text-align:center; padding:1rem 0;">ไม่มีรายการค้างผูก ✓</p>`;
+    return;
+  }
+
+  container.innerHTML = names.map(name => `
+    <label style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:0.5px solid var(--border); font-size:13px;">
+      <span><input type="checkbox" class="unlinked-item-checkbox" value="${name.replace(/"/g, '&quot;')}" style="width:auto; margin-right:8px;">${name}</span>
+      <span class="muted">${byName[name].count} ครั้ง · ${money(byName[name].total)}</span>
+    </label>
+  `).join('');
+}
+
+document.getElementById('link-selected-btn').addEventListener('click', async () => {
+  const banner = document.getElementById('link-save-banner');
+  const productId = document.getElementById('link-to-product-select').value;
+  const selectedNames = [...document.querySelectorAll('.unlinked-item-checkbox:checked')].map(el => el.value);
+
+  if (!productId || selectedNames.length === 0) {
+    banner.className = 'banner err';
+    banner.textContent = 'เลือกสินค้าปลายทาง และติ๊กอย่างน้อย 1 ชื่อ';
+    banner.style.display = 'block';
+    return;
+  }
+
+  const btn = document.getElementById('link-selected-btn');
+  btn.disabled = true;
+  try {
+    for (const name of selectedNames) {
+      await sbClient.from('expense_items').update({ product_id: productId }).eq('item_name', name).is('product_id', null);
+    }
+    banner.className = 'banner ok';
+    banner.textContent = `ผูก ${selectedNames.length} ชื่อเรียบร้อย ✓`;
+    banner.style.display = 'block';
+    loadProducts();
+  } catch (err) {
+    console.error(err);
+    banner.className = 'banner err';
+    banner.textContent = 'ผูกไม่สำเร็จ: ' + (err.message || String(err));
+    banner.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 init();
 </script>
