@@ -42,6 +42,12 @@
   .banner.err { background:#fbeaea; color:var(--danger); }
   .recon-card { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:0.5px solid var(--border); }
   .recon-card:last-child { border-bottom:none; }
+  .date-header { font-weight:500; font-size:13px; color:var(--text-secondary); margin:14px 0 6px; }
+  .date-header:first-child { margin-top:0; }
+  .expense-item-card { border:0.5px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:8px; }
+  .expense-item-card .top-line { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .expense-item-card .cat-badge { font-size:11px; color:var(--text-secondary); background:var(--surface-1); border-radius:999px; padding:2px 8px; white-space:nowrap; }
+  .expense-item-card .sub-line { font-size:12px; color:var(--text-secondary); margin-top:4px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
 </style>
 </head>
 <body>
@@ -64,6 +70,7 @@
 
   <div class="tabbar">
     <button data-tab="expense" class="active">เพิ่มรายจ่าย</button>
+    <button data-tab="expense-list">รายการรายจ่าย</button>
     <button data-tab="income">เพิ่มรายรับ</button>
     <button data-tab="recon">กระทบยอด</button>
     <button data-tab="report">รายงานเดือน</button>
@@ -106,6 +113,37 @@
         <button id="save-expense-btn" class="primary" style="width:100%; margin-top:8px;">บันทึก</button>
         <div id="expense-save-banner" style="display:none; margin-top:10px;"></div>
       </div>
+    </div>
+  </div>
+
+  <!-- TAB: รายการรายจ่าย -->
+  <div id="tab-expense-list" class="tab-panel" style="display:none;">
+    <div class="card">
+      <div style="display:flex; gap:8px; margin-bottom:10px;">
+        <button id="preset-today-btn" type="button" style="flex:1;">วันนี้</button>
+        <button id="preset-month-btn" type="button" style="flex:1;">เดือนนี้</button>
+        <button id="toggle-expense-filter-btn" type="button" style="flex:1;">ตัวกรอง</button>
+      </div>
+      <div id="expense-filter-form" style="display:none; margin-bottom:12px;">
+        <div class="row">
+          <div class="field"><label>จากวันที่</label><input id="filter-date-from" type="date"></div>
+          <div class="field"><label>ถึงวันที่</label><input id="filter-date-to" type="date"></div>
+        </div>
+        <div class="field">
+          <label>หมวดหมู่</label>
+          <select id="filter-category"><option value="">ทั้งหมด</option></select>
+        </div>
+        <div class="field">
+          <label>บัญชีที่จ่าย</label>
+          <select id="filter-account"><option value="">ทั้งหมด</option></select>
+        </div>
+        <div class="row">
+          <button id="apply-filter-btn" class="primary" type="button" style="flex:1;">กรอง</button>
+          <button id="clear-filter-btn" type="button" style="flex:1;">ล้างตัวกรอง</button>
+        </div>
+      </div>
+      <div id="expense-list-summary" class="muted" style="margin-bottom:10px;"></div>
+      <div id="expense-list-container"></div>
     </div>
   </div>
 
@@ -312,11 +350,13 @@ async function afterLogin() {
   paymentAccounts = payAcctRes.data || [];
   populateChannelSelect();
   populatePaymentAccountSelect();
+  populateExpenseListFilters();
   resetExpenseForm();
   document.getElementById('exp-date').value = todayStr();
   document.getElementById('inc-date').value = todayStr();
   document.getElementById('recon-month').value = thisMonthStr();
   document.getElementById('report-month').value = thisMonthStr();
+  setExpenseListRangeToThisMonth();
   loadReconciliation();
   loadReport();
 }
@@ -333,6 +373,7 @@ document.querySelectorAll('.tabbar button').forEach(btn => {
     if (btn.dataset.tab === 'recon') loadReconciliation();
     if (btn.dataset.tab === 'report') loadReport();
     if (btn.dataset.tab === 'assets') loadAssetsLiabilities();
+    if (btn.dataset.tab === 'expense-list') loadExpenseList();
   });
 });
 
@@ -934,6 +975,123 @@ document.getElementById('save-liability-btn').addEventListener('click', async ()
     banner.style.display = 'block';
   }
 });
+
+// ---------- Expense List (ledger view: filter/browse/delete individual line items) ----------
+function firstDayOfMonthStr(d = new Date()) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`; }
+function lastDayOfMonthStr(d = new Date()) {
+  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+  return `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, '0')}-${String(last.getDate()).padStart(2, '0')}`;
+}
+function thaiDateStr(dateStr) {
+  const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+  const d = new Date(dateStr);
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear() + 543}`;
+}
+
+function populateExpenseListFilters() {
+  document.getElementById('filter-category').innerHTML = '<option value="">ทั้งหมด</option>' + categoryOptionsHtml(null);
+  document.getElementById('filter-account').innerHTML = '<option value="">ทั้งหมด</option>' +
+    paymentAccounts.map(a => `<option value="${a.id}">${a.label_th}</option>`).join('');
+}
+
+function setExpenseListRangeToThisMonth() {
+  document.getElementById('filter-date-from').value = firstDayOfMonthStr();
+  document.getElementById('filter-date-to').value = lastDayOfMonthStr();
+}
+
+document.getElementById('toggle-expense-filter-btn').addEventListener('click', () => {
+  const form = document.getElementById('expense-filter-form');
+  form.style.display = form.style.display === 'none' ? 'block' : 'none';
+});
+document.getElementById('preset-today-btn').addEventListener('click', () => {
+  document.getElementById('filter-date-from').value = todayStr();
+  document.getElementById('filter-date-to').value = todayStr();
+  loadExpenseList();
+});
+document.getElementById('preset-month-btn').addEventListener('click', () => {
+  setExpenseListRangeToThisMonth();
+  loadExpenseList();
+});
+document.getElementById('apply-filter-btn').addEventListener('click', loadExpenseList);
+document.getElementById('clear-filter-btn').addEventListener('click', () => {
+  setExpenseListRangeToThisMonth();
+  document.getElementById('filter-category').value = '';
+  document.getElementById('filter-account').value = '';
+  loadExpenseList();
+});
+
+async function loadExpenseList() {
+  const from = document.getElementById('filter-date-from').value;
+  const to = document.getElementById('filter-date-to').value;
+  const categoryId = document.getElementById('filter-category').value;
+  const accountId = document.getElementById('filter-account').value;
+
+  let query = sbClient.from('expense_items')
+    .select('id, item_name, quantity, unit_price, category_id, expense_id, expenses!inner(expense_date, vendor, payment_account_id, receipt_photo_path, note)')
+    .order('expense_date', { foreignTable: 'expenses', ascending: false });
+
+  if (from) query = query.gte('expenses.expense_date', from);
+  if (to) query = query.lte('expenses.expense_date', to);
+  if (categoryId) query = query.eq('category_id', categoryId);
+  if (accountId) query = query.eq('expenses.payment_account_id', accountId);
+
+  const container = document.getElementById('expense-list-container');
+  const { data, error } = await query;
+  if (error) {
+    container.innerHTML = `<div class="banner err">โหลดข้อมูลไม่สำเร็จ: ${error.message}</div>`;
+    return;
+  }
+
+  const rows = data || [];
+  const total = rows.reduce((s, r) => s + Number(r.quantity) * Number(r.unit_price), 0);
+  document.getElementById('expense-list-summary').textContent = `พบ ${rows.length} รายการ · ยอดรวม ${money(total)}`;
+
+  if (rows.length === 0) {
+    container.innerHTML = `<p class="muted" style="text-align:center; padding:1.5rem 0;">ไม่พบรายการในช่วงที่เลือก</p>`;
+    return;
+  }
+
+  const byDate = {};
+  rows.forEach(r => {
+    const d = r.expenses.expense_date;
+    (byDate[d] = byDate[d] || []).push(r);
+  });
+
+  container.innerHTML = Object.keys(byDate).sort().reverse().map(date => `
+    <div class="date-header">${thaiDateStr(date)}</div>
+    ${byDate[date].map(r => {
+      const cat = expenseCategories.find(c => c.id === r.category_id);
+      const acct = paymentAccounts.find(a => a.id === r.expenses.payment_account_id);
+      const lineTotal = Number(r.quantity) * Number(r.unit_price);
+      return `
+        <div class="expense-item-card">
+          <div class="top-line">
+            <span>${r.item_name}</span>
+            <span class="cat-badge">${cat ? cat.label_th : '—'}</span>
+          </div>
+          <div class="sub-line">
+            <span>${r.quantity} × ${money(r.unit_price)} = ${money(lineTotal)}</span>
+            <button data-id="${r.id}" class="delete-expense-item-btn" type="button" style="padding:2px 10px; font-size:12px;">ลบ</button>
+          </div>
+          <div class="sub-line"><span>${acct ? acct.label_th : 'ไม่ระบุบัญชี'}${r.expenses.vendor ? ' · ' + r.expenses.vendor : ''}</span></div>
+        </div>
+      `;
+    }).join('')}
+  `).join('');
+
+  container.querySelectorAll('.delete-expense-item-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('ลบรายการนี้?')) return;
+      btn.disabled = true;
+      const row = rows.find(r => r.id === btn.dataset.id);
+      await sbClient.from('expense_items').delete().eq('id', btn.dataset.id);
+      // if that was the last item on its receipt, remove the now-empty header too
+      const { count } = await sbClient.from('expense_items').select('id', { count: 'exact', head: true }).eq('expense_id', row.expense_id);
+      if (!count) await sbClient.from('expenses').delete().eq('id', row.expense_id);
+      loadExpenseList();
+    });
+  });
+}
 
 init();
 </script>
