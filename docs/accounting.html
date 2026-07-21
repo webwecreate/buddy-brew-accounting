@@ -1085,7 +1085,7 @@ async function loadExpenseList() {
   const accountId = document.getElementById('filter-account').value;
 
   let query = sbClient.from('expense_items')
-    .select('id, item_name, quantity, unit_price, category_id, expense_id, expenses!inner(expense_date, vendor, payment_account_id, receipt_photo_path, note)')
+    .select('id, item_name, product_id, quantity, unit_price, category_id, expense_id, expenses!inner(expense_date, vendor, payment_account_id, receipt_photo_path, note)')
     .order('expense_date', { foreignTable: 'expenses', ascending: false });
 
   if (from) query = query.gte('expenses.expense_date', from);
@@ -1120,11 +1120,19 @@ async function loadExpenseList() {
     ${byDate[date].map(r => {
       const cat = expenseCategories.find(c => c.id === r.category_id);
       const acct = paymentAccounts.find(a => a.id === r.expenses.payment_account_id);
+      const product = r.product_id ? productsList.find(p => p.id === r.product_id) : null;
       const lineTotal = Number(r.quantity) * Number(r.unit_price);
+      // show the linked product's canonical name when linked (matches what staff actually search for),
+      // keep the raw typed/OCR text visible underneath so it's still traceable
+      const nameLine = product
+        ? `<span>${product.name} <span class="muted" style="font-weight:normal;">🔗</span></span>`
+        : `<span>${r.item_name}</span>`;
+      const rawNameLine = (product && product.name !== r.item_name)
+        ? `<div class="sub-line"><span class="muted">บันทึกไว้ว่า: ${r.item_name}</span></div>` : '';
       return `
         <div class="expense-item-card">
           <div class="top-line">
-            <span>${r.item_name}</span>
+            ${nameLine}
             <span class="cat-badge">${cat ? cat.label_th : '—'}</span>
           </div>
           <div class="sub-line">
@@ -1132,6 +1140,7 @@ async function loadExpenseList() {
             <button data-id="${r.id}" class="delete-expense-item-btn" type="button" style="padding:2px 10px; font-size:12px;">ลบ</button>
           </div>
           <div class="sub-line"><span>${acct ? acct.label_th : 'ไม่ระบุบัญชี'}${r.expenses.vendor ? ' · ' + r.expenses.vendor : ''}</span></div>
+          ${rawNameLine}
         </div>
       `;
     }).join('')}
