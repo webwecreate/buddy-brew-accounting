@@ -12,6 +12,8 @@
     --border:#e3e1d8; --border-strong:#cfcdc2; --radius:8px;
     --accent:#2f6f4f; --danger:#A32D2D;
   }
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { max-width: 100%; overflow-x: hidden; }
   body { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; background: var(--surface-0); margin:0; padding: 24px 16px 64px; color: var(--text-primary); }
   button { padding: 8px 14px; border-radius: 8px; border: 0.5px solid var(--border-strong); background: #fff; cursor:pointer; font-size:14px; color: var(--text-primary); font-family: inherit; }
   button:hover { background: var(--surface-1); }
@@ -23,7 +25,8 @@
   .field { margin-bottom:12px; }
   .card { background: var(--surface-2); border-radius: 12px; border: 0.5px solid var(--border); padding: 1.1rem; max-width:480px; margin:0 auto 16px; }
   .row { display:flex; gap:8px; }
-  .row > * { flex:1; }
+  .row > * { flex:1; min-width:0; }
+  .table-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; margin:0 -4px; padding:0 4px; }
   .muted { color: var(--text-muted); font-size:12px; }
   .tabbar { display:flex; gap:6px; max-width:480px; margin:0 auto 16px; flex-wrap:wrap; }
   .tabbar button { flex:1; min-width: 100px; }
@@ -88,10 +91,12 @@
         </div>
 
         <label>รายการสินค้า</label>
-        <table>
-          <thead><tr><th>ชื่อสินค้า</th><th style="width:52px;">จำนวน</th><th style="width:76px;">ราคา/หน่วย</th><th>หมวด</th><th></th></tr></thead>
-          <tbody id="items-tbody"></tbody>
-        </table>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>ชื่อสินค้า</th><th style="width:52px;">จำนวน</th><th style="width:76px;">ราคา/หน่วย</th><th>หมวด</th><th></th></tr></thead>
+            <tbody id="items-tbody"></tbody>
+          </table>
+        </div>
         <button id="add-item-row-btn" style="margin-top:8px;">+ เพิ่มรายการ</button>
 
         <div class="total-line"><span>ยอดรวม</span><span id="items-total">0 บาท</span></div>
@@ -141,21 +146,27 @@
     <div class="card">
       <div class="field"><label>เดือน</label><input id="report-month" type="month"></div>
       <div id="report-income-summary" class="muted" style="margin-bottom:10px;"></div>
-      <table>
-        <thead><tr><th>หมวด</th><th>ตามโมเดล</th><th>จริง</th><th>ส่วนต่าง</th></tr></thead>
-        <tbody id="report-tbody"></tbody>
-      </table>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>หมวด</th><th>ตามโมเดล</th><th>จริง</th><th>ส่วนต่าง</th></tr></thead>
+          <tbody id="report-tbody"></tbody>
+        </table>
+      </div>
       <label style="margin-top:10px;">รายจ่ายแยกตามบัญชีที่จ่าย</label>
-      <table>
-        <thead><tr><th>บัญชี</th><th>ยอดจ่าย</th></tr></thead>
-        <tbody id="report-accounts-tbody"></tbody>
-      </table>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>บัญชี</th><th>ยอดจ่าย</th></tr></thead>
+          <tbody id="report-accounts-tbody"></tbody>
+        </table>
+      </div>
       <div id="report-assets-summary" class="muted" style="margin-top:14px;"></div>
       <label style="margin-top:10px;">หนี้สินคงค้าง แยกตามเจ้าหนี้</label>
-      <table>
-        <thead><tr><th>เจ้าหนี้</th><th>ประเภท</th><th>คงเหลือ</th></tr></thead>
-        <tbody id="report-liabilities-tbody"></tbody>
-      </table>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>เจ้าหนี้</th><th>ประเภท</th><th>คงเหลือ</th></tr></thead>
+          <tbody id="report-liabilities-tbody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -184,10 +195,12 @@
         <button id="save-asset-btn" class="primary" style="width:100%;">บันทึก</button>
         <div id="asset-save-banner" style="display:none; margin-top:10px;"></div>
       </div>
-      <table>
-        <thead><tr><th>ชื่อ</th><th>หมวด</th><th>ราคาซื้อ</th><th>ค่าเสื่อมสะสม</th><th>คงเหลือ</th><th>สถานะ</th><th></th></tr></thead>
-        <tbody id="asset-list-tbody"></tbody>
-      </table>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>ชื่อ</th><th>หมวด</th><th>ราคาซื้อ</th><th>ค่าเสื่อมสะสม</th><th>คงเหลือ</th><th>สถานะ</th><th></th></tr></thead>
+          <tbody id="asset-list-tbody"></tbody>
+        </table>
+      </div>
     </div>
 
     <div class="card">
@@ -222,10 +235,12 @@
         <button id="save-liability-btn" class="primary" style="width:100%;">บันทึก</button>
         <div id="liability-save-banner" style="display:none; margin-top:10px;"></div>
       </div>
-      <table>
-        <thead><tr><th>เจ้าหนี้</th><th>ยอดตั้งต้น</th><th>จ่ายแล้ว</th><th>คงเหลือ</th><th>สถานะ</th><th></th></tr></thead>
-        <tbody id="liability-list-tbody"></tbody>
-      </table>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>เจ้าหนี้</th><th>ยอดตั้งต้น</th><th>จ่ายแล้ว</th><th>คงเหลือ</th><th>สถานะ</th><th></th></tr></thead>
+          <tbody id="liability-list-tbody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
