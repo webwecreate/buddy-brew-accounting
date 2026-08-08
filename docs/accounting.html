@@ -114,6 +114,12 @@
 
         <div class="field" style="margin-top:12px;"><label>โน้ต (ถ้ามี)</label><textarea id="exp-note" rows="2"></textarea></div>
 
+        <div class="field">
+          <label>แนบรูปสลิป (หลักฐาน, ถ้ามี)</label>
+          <input id="evidence-photo-input" type="file" accept="image/*" capture="environment">
+          <div id="evidence-photo-status" class="muted" style="margin-top:4px;"></div>
+        </div>
+
         <button id="save-expense-btn" class="primary" style="width:100%; margin-top:8px;">บันทึก</button>
         <div id="expense-save-banner" style="display:none; margin-top:10px;"></div>
       </div>
@@ -126,6 +132,7 @@
       <div style="display:flex; gap:8px; margin-bottom:10px;">
         <button id="preset-today-btn" type="button" style="flex:1;">วันนี้</button>
         <button id="preset-month-btn" type="button" style="flex:1;">เดือนนี้</button>
+        <button id="preset-last-month-btn" type="button" style="flex:1;">เดือนที่แล้ว</button>
         <button id="toggle-expense-filter-btn" type="button" style="flex:1;">ตัวกรอง</button>
       </div>
       <div id="expense-filter-form" style="display:none; margin-bottom:12px;">
@@ -427,6 +434,7 @@ let paymentAccounts = [];
 let productsList = [];
 let expenseItems = []; // draft rows for the expense form: {item_name, quantity, unit_price, category_id}
 let receiptPhotoBlob = null;
+let receiptPhotoFromOcr = false; // true only if the photo came through the OCR input, for accurate expenses.source
 
 const loginScreen = document.getElementById('login-screen');
 const appEl = document.getElementById('app');
@@ -568,7 +576,10 @@ function addBlankItemRow() {
 function resetExpenseForm() {
   expenseItems = [];
   receiptPhotoBlob = null;
+  receiptPhotoFromOcr = false;
   document.getElementById('receipt-photo-input').value = '';
+  document.getElementById('evidence-photo-input').value = '';
+  document.getElementById('evidence-photo-status').textContent = '';
   document.getElementById('ocr-status').style.display = 'none';
   document.getElementById('expense-form').style.display = 'none';
   document.getElementById('expense-save-banner').style.display = 'none';
@@ -576,6 +587,20 @@ function resetExpenseForm() {
   document.getElementById('exp-note').value = '';
   document.getElementById('exp-date').value = todayStr();
 }
+
+document.getElementById('evidence-photo-input').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const status = document.getElementById('evidence-photo-status');
+  status.textContent = 'กำลังเตรียมรูป...';
+  try {
+    receiptPhotoBlob = await downscaleImage(file);
+    status.textContent = 'แนบรูปแล้ว ✓';
+  } catch (err) {
+    console.error(err);
+    status.textContent = 'แนบรูปไม่สำเร็จ ลองใหม่อีกครั้ง';
+  }
+});
 
 document.getElementById('manual-entry-btn').addEventListener('click', () => {
   expenseItems = [];
@@ -634,6 +659,8 @@ document.getElementById('receipt-photo-input').addEventListener('change', async 
 
   try {
     receiptPhotoBlob = await downscaleImage(file);
+    receiptPhotoFromOcr = true;
+    document.getElementById('evidence-photo-status').textContent = 'แนบรูปแล้ว ✓ (ใช้รูปเดียวกับที่อ่าน OCR)';
     const base64 = await blobToBase64(receiptPhotoBlob);
 
     const { data, error } = await sbClient.functions.invoke('receipt-ocr', {
@@ -700,7 +727,7 @@ document.getElementById('save-expense-btn').addEventListener('click', async () =
       vendor: document.getElementById('exp-vendor').value || null,
       note: document.getElementById('exp-note').value || null,
       payment_account_id: document.getElementById('exp-payment-account').value || null,
-      source: receiptPhotoBlob ? 'ocr' : 'manual',
+      source: receiptPhotoFromOcr ? 'ocr' : 'manual',
       created_by: currentSession.user.id,
     }).select('id').single();
 
@@ -1618,6 +1645,11 @@ function setExpenseListRangeToThisMonth() {
   document.getElementById('filter-date-from').value = firstDayOfMonthStr();
   document.getElementById('filter-date-to').value = lastDayOfMonthStr();
 }
+function setExpenseListRangeToLastMonth() {
+  const lastMonthDate = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1);
+  document.getElementById('filter-date-from').value = firstDayOfMonthStr(lastMonthDate);
+  document.getElementById('filter-date-to').value = lastDayOfMonthStr(lastMonthDate);
+}
 
 document.getElementById('toggle-expense-filter-btn').addEventListener('click', () => {
   const form = document.getElementById('expense-filter-form');
@@ -1630,6 +1662,10 @@ document.getElementById('preset-today-btn').addEventListener('click', () => {
 });
 document.getElementById('preset-month-btn').addEventListener('click', () => {
   setExpenseListRangeToThisMonth();
+  loadExpenseList();
+});
+document.getElementById('preset-last-month-btn').addEventListener('click', () => {
+  setExpenseListRangeToLastMonth();
   loadExpenseList();
 });
 document.getElementById('apply-filter-btn').addEventListener('click', loadExpenseList);
@@ -1691,6 +1727,8 @@ async function loadExpenseList() {
         : `<span>${r.item_name}</span>`;
       const rawNameLine = (product && product.name !== r.item_name)
         ? `<div class="sub-line"><span class="muted">บันทึกไว้ว่า: ${r.item_name}</span></div>` : '';
+      const photoBtn = r.expenses.receipt_photo_path
+        ? `<button data-path="${r.expenses.receipt_photo_path}" class="view-receipt-photo-btn" type="button" style="padding:2px 10px; font-size:12px;">ดูรูปสลิป</button>` : '';
       return `
         <div class="expense-item-card">
           <div class="top-line">
@@ -1699,7 +1737,10 @@ async function loadExpenseList() {
           </div>
           <div class="sub-line">
             <span>${r.quantity} × ${money(r.unit_price)} = ${money(lineTotal)}</span>
-            <button data-id="${r.id}" class="delete-expense-item-btn" type="button" style="padding:2px 10px; font-size:12px;">ลบ</button>
+            <span style="display:flex; gap:6px;">
+              ${photoBtn}
+              <button data-id="${r.id}" class="delete-expense-item-btn" type="button" style="padding:2px 10px; font-size:12px;">ลบ</button>
+            </span>
           </div>
           <div class="sub-line"><span>${acct ? acct.label_th : 'ไม่ระบุบัญชี'}${r.expenses.vendor ? ' · ' + r.expenses.vendor : ''}</span></div>
           ${rawNameLine}
@@ -1718,6 +1759,22 @@ async function loadExpenseList() {
       const { count } = await sbClient.from('expense_items').select('id', { count: 'exact', head: true }).eq('expense_id', row.expense_id);
       if (!count) await sbClient.from('expenses').delete().eq('id', row.expense_id);
       loadExpenseList();
+    });
+  });
+
+  container.querySelectorAll('.view-receipt-photo-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      const originalText = btn.textContent;
+      btn.textContent = 'กำลังโหลด...';
+      const { data, error } = await sbClient.storage.from('receipts').createSignedUrl(btn.dataset.path, 60);
+      btn.disabled = false;
+      btn.textContent = originalText;
+      if (error || !data) {
+        alert('เปิดรูปไม่สำเร็จ: ' + (error?.message || 'unknown error'));
+        return;
+      }
+      window.open(data.signedUrl, '_blank');
     });
   });
 }
