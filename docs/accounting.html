@@ -91,9 +91,10 @@
       <button id="manual-entry-btn" style="width:100%; margin-bottom:12px;">กรอกเอง (ไม่ใช้ OCR)</button>
 
       <div id="expense-form" style="display:none;">
+        <datalist id="vendor-name-list"></datalist>
         <div class="row">
           <div class="field"><label>วันที่</label><input id="exp-date" type="date"></div>
-          <div class="field"><label>ร้านค้า</label><input id="exp-vendor" type="text" placeholder="เช่น Makro"></div>
+          <div class="field"><label>ร้านค้า</label><input id="exp-vendor" type="text" placeholder="เช่น Makro" list="vendor-name-list"></div>
         </div>
         <div class="field">
           <label>จ่ายจากบัญชี</label>
@@ -433,6 +434,7 @@ let expenseCategories = [];
 let incomeChannels = [];
 let paymentAccounts = [];
 let productsList = [];
+let vendorHistory = [];
 let expenseItems = []; // draft rows for the expense form: {item_name, quantity, unit_price, category_id}
 let receiptPhotoBlob = null;
 let receiptPhotoFromOcr = false; // true only if the photo came through the OCR input, for accurate expenses.source
@@ -482,28 +484,34 @@ document.getElementById('logout-btn').addEventListener('click', async () => {
 });
 
 async function afterLogin() {
-  showApp();
-  const [catRes, chanRes, payAcctRes, productsRes] = await Promise.all([
+  // load reference data (categories/channels/payment accounts/products/vendor history) BEFORE
+  // showing the app — showing it first left a window where selects were tappable but still
+  // empty (native mobile pickers show "No option" if a <select> has zero <option>s at tap time)
+  const [catRes, chanRes, payAcctRes, productsRes, vendorRes] = await Promise.all([
     sbClient.from('expense_categories').select('*').eq('active', true).order('sort_order'),
     sbClient.from('income_channels').select('*').eq('active', true).order('sort_order'),
     sbClient.from('payment_accounts').select('*').eq('active', true).order('sort_order'),
     sbClient.from('products').select('*').eq('active', true).order('name'),
+    sbClient.from('expenses').select('vendor').not('vendor', 'is', null).order('created_at', { ascending: false }).limit(500),
   ]);
   expenseCategories = catRes.data || [];
   incomeChannels = chanRes.data || [];
   paymentAccounts = payAcctRes.data || [];
   productsList = productsRes.data || [];
+  vendorHistory = [...new Set((vendorRes.data || []).map(r => r.vendor.trim()).filter(Boolean))];
   populateChannelSelect();
   populatePaymentAccountSelect();
   populateExpenseListFilters();
   populateProductCategorySelect();
   populateItemNameDatalist();
+  populateVendorDatalist();
   resetExpenseForm();
   document.getElementById('exp-date').value = todayStr();
   document.getElementById('inc-date').value = todayStr();
   document.getElementById('recon-month').value = thisMonthStr();
   document.getElementById('report-month').value = thisMonthStr();
   setExpenseListRangeToThisMonth();
+  showApp();
   loadReconciliation();
   loadReport();
 }
@@ -1775,6 +1783,8 @@ async function loadExpenseList() {
         : photos.map((p, i) => `<button data-path="${p}" class="view-receipt-photo-btn" type="button" style="padding:2px 10px; font-size:12px;">รูป ${i + 1}</button>`).join('');
       const productOptions = [`<option value="">— ไม่ผูก —</option>`]
         .concat(productsList.map(p => `<option value="${p.id}" ${p.id === r.product_id ? 'selected' : ''}>${p.name}</option>`)).join('');
+      const accountOptions = [`<option value="">— ไม่ระบุบัญชี —</option>`]
+        .concat(paymentAccounts.map(a => `<option value="${a.id}" ${a.id === r.expenses.payment_account_id ? 'selected' : ''}>${a.label_th}</option>`)).join('');
       return `
         <div class="expense-item-card">
           <div class="top-line">
@@ -1785,14 +1795,44 @@ async function loadExpenseList() {
             <span>${r.quantity} × ${money(r.unit_price)} = ${money(lineTotal)}</span>
             <span style="display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px;">
               ${photoBtn}
+              <button data-id="${r.id}" class="edit-item-btn" type="button" style="padding:2px 10px; font-size:12px;">แก้ไขรายละเอียด</button>
               <button data-id="${r.id}" class="edit-link-btn" type="button" style="padding:2px 10px; font-size:12px;">แก้ไขการผูก</button>
               <button data-id="${r.id}" class="delete-expense-item-btn" type="button" style="padding:2px 10px; font-size:12px;">ลบ</button>
             </span>
           </div>
-          <div class="sub-line"><span>${acct ? acct.label_th : 'ไม่ระบุบัญชี'}${r.expenses.vendor ? ' · ' + r.expenses.vendor : ''}</span></div>
+          <div class="sub-line">
+            <span>${acct ? acct.label_th : 'ไม่ระบุบัญชี'}${r.expenses.vendor ? ' · ' + r.expenses.vendor : ''}</span>
+            <button data-expense-id="${r.expense_id}" class="edit-receipt-btn" type="button" style="padding:2px 10px; font-size:12px;">แก้ไข</button>
+          </div>
           ${rawNameLine}
           <div class="relink-row" data-id="${r.id}" style="display:none; margin-top:6px;">
             <select class="relink-product-select" data-id="${r.id}" style="font-size:13px;">${productOptions}</select>
+          </div>
+          <div class="edit-item-row" data-id="${r.id}" style="display:none; margin-top:6px;">
+            <div class="field" style="margin-bottom:6px;">
+              <label>ชื่อสินค้า</label>
+              <input type="text" class="edit-item-name" value="${r.item_name.replace(/"/g, '&quot;')}" list="product-name-list">
+            </div>
+            <div class="row" style="margin-bottom:6px;">
+              <div class="field"><label>จำนวน</label><input type="number" class="edit-item-quantity" value="${r.quantity}" min="0" step="any"></div>
+              <div class="field"><label>ราคา/หน่วย</label><input type="number" class="edit-item-unit-price" value="${r.unit_price}" min="0" step="any"></div>
+            </div>
+            <div class="field" style="margin-bottom:6px;">
+              <label>หมวด</label>
+              <select class="edit-item-category">${categoryOptionsHtml(r.category_id)}</select>
+            </div>
+            <button data-id="${r.id}" class="save-item-edit-btn primary" type="button" style="font-size:12px; padding:4px 12px;">บันทึก</button>
+          </div>
+          <div class="edit-receipt-row" data-expense-id="${r.expense_id}" style="display:none; margin-top:6px;">
+            <div class="field" style="margin-bottom:6px;">
+              <label>ร้านค้า</label>
+              <input type="text" class="edit-receipt-vendor" value="${(r.expenses.vendor || '').replace(/"/g, '&quot;')}" placeholder="เช่น Makro" list="vendor-name-list">
+            </div>
+            <div class="field" style="margin-bottom:6px;">
+              <label>จ่ายจากบัญชี</label>
+              <select class="edit-receipt-account">${accountOptions}</select>
+            </div>
+            <button data-expense-id="${r.expense_id}" class="save-receipt-edit-btn primary" type="button" style="font-size:12px; padding:4px 12px;">บันทึก</button>
           </div>
         </div>
       `;
@@ -1839,6 +1879,52 @@ async function loadExpenseList() {
     sel.addEventListener('change', async () => {
       sel.disabled = true;
       await sbClient.from('expense_items').update({ product_id: sel.value || null }).eq('id', sel.dataset.id);
+      loadExpenseList();
+    });
+  });
+
+  container.querySelectorAll('.edit-item-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const row = container.querySelector(`.edit-item-row[data-id="${btn.dataset.id}"]`);
+      row.style.display = row.style.display === 'none' ? 'block' : 'none';
+    });
+  });
+
+  container.querySelectorAll('.save-item-edit-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const row = container.querySelector(`.edit-item-row[data-id="${btn.dataset.id}"]`);
+      const name = row.querySelector('.edit-item-name').value.trim();
+      const quantity = Number(row.querySelector('.edit-item-quantity').value);
+      const unitPrice = Number(row.querySelector('.edit-item-unit-price').value);
+      const categoryId = row.querySelector('.edit-item-category').value;
+      if (!name || !(quantity > 0) || !(unitPrice > 0)) {
+        alert('กรอกชื่อสินค้า จำนวน และราคา ให้ครบและมากกว่า 0');
+        return;
+      }
+      btn.disabled = true;
+      await sbClient.from('expense_items').update({
+        item_name: name, quantity, unit_price: unitPrice, category_id: categoryId,
+      }).eq('id', btn.dataset.id);
+      loadExpenseList();
+    });
+  });
+
+  container.querySelectorAll('.edit-receipt-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const row = container.querySelector(`.edit-receipt-row[data-expense-id="${btn.dataset.expenseId}"]`);
+      row.style.display = row.style.display === 'none' ? 'block' : 'none';
+    });
+  });
+
+  container.querySelectorAll('.save-receipt-edit-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const row = container.querySelector(`.edit-receipt-row[data-expense-id="${btn.dataset.expenseId}"]`);
+      const vendor = row.querySelector('.edit-receipt-vendor').value.trim();
+      const accountId = row.querySelector('.edit-receipt-account').value;
+      btn.disabled = true;
+      await sbClient.from('expenses').update({
+        vendor: vendor || null, payment_account_id: accountId || null,
+      }).eq('id', btn.dataset.expenseId);
       loadExpenseList();
     });
   });
@@ -1892,6 +1978,11 @@ function populateProductCategorySelect() {
 function populateItemNameDatalist() {
   document.getElementById('product-name-list').innerHTML =
     productsList.map(p => `<option value="${p.name.replace(/"/g, '&quot;')}">`).join('');
+}
+
+function populateVendorDatalist() {
+  document.getElementById('vendor-name-list').innerHTML =
+    vendorHistory.map(v => `<option value="${v.replace(/"/g, '&quot;')}">`).join('');
 }
 
 async function loadProducts() {
