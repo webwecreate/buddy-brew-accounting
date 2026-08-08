@@ -1743,18 +1743,19 @@ async function loadExpenseList() {
   }
 
   // photos can come from the legacy single expenses.receipt_photo_path (OCR flow) and/or
-  // multiple rows in expense_receipts (manually-attached evidence) — merge per expense_id
+  // multiple rows in expense_receipts (manually-attached evidence) — merge per expense_id.
+  // tagged with source+id so the edit panel's photo section knows how to delete each one.
   const expenseIds = [...new Set(rows.map(r => r.expense_id))];
   const { data: extraPhotos } = await sbClient.from('expense_receipts')
-    .select('expense_id, photo_path').in('expense_id', expenseIds);
+    .select('id, expense_id, photo_path').in('expense_id', expenseIds);
   const photosByExpense = {};
   rows.forEach(r => {
     if (r.expenses.receipt_photo_path) {
-      (photosByExpense[r.expense_id] = photosByExpense[r.expense_id] || []).push(r.expenses.receipt_photo_path);
+      (photosByExpense[r.expense_id] = photosByExpense[r.expense_id] || []).push({ path: r.expenses.receipt_photo_path, source: 'legacy' });
     }
   });
   (extraPhotos || []).forEach(p => {
-    (photosByExpense[p.expense_id] = photosByExpense[p.expense_id] || []).push(p.photo_path);
+    (photosByExpense[p.expense_id] = photosByExpense[p.expense_id] || []).push({ path: p.photo_path, source: 'receipt', receiptId: p.id });
   });
 
   const byDate = {};
@@ -1778,13 +1779,22 @@ async function loadExpenseList() {
       const rawNameLine = (product && product.name !== r.item_name)
         ? `<div class="sub-line"><span class="muted">บันทึกไว้ว่า: ${r.item_name}</span></div>` : '';
       const photos = photosByExpense[r.expense_id] || [];
-      const photoBtn = photos.length === 0 ? '' : photos.length === 1
-        ? `<button data-path="${photos[0]}" class="view-receipt-photo-btn" type="button" style="padding:2px 10px; font-size:12px;">ดูรูปสลิป</button>`
-        : photos.map((p, i) => `<button data-path="${p}" class="view-receipt-photo-btn" type="button" style="padding:2px 10px; font-size:12px;">รูป ${i + 1}</button>`).join('');
+      const photoBtn = photos.length === 0 ? '' :
+        `<button data-expense-id="${r.expense_id}" class="view-receipt-photo-btn" type="button" style="padding:2px 10px; font-size:12px;">ดูรูปสลิป${photos.length > 1 ? ` (${photos.length})` : ''}</button>`;
       const productOptions = [`<option value="">— ไม่ผูก —</option>`]
         .concat(productsList.map(p => `<option value="${p.id}" ${p.id === r.product_id ? 'selected' : ''}>${p.name}</option>`)).join('');
       const accountOptions = [`<option value="">— ไม่ระบุบัญชี —</option>`]
         .concat(paymentAccounts.map(a => `<option value="${a.id}" ${a.id === r.expenses.payment_account_id ? 'selected' : ''}>${a.label_th}</option>`)).join('');
+      const photoListHtml = photos.length === 0
+        ? `<p class="muted" style="margin:4px 0;">ยังไม่มีรูปแนบ</p>`
+        : photos.map((p, i) => `
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; padding:3px 0;">
+              <span class="muted">รูป ${i + 1}</span>
+              <span style="display:flex; gap:6px;">
+                <button data-path="${p.path}" class="view-receipt-photo-btn" type="button" style="padding:2px 10px; font-size:12px;">ดู</button>
+                <button data-path="${p.path}" data-source="${p.source}" data-receipt-id="${p.receiptId || ''}" data-expense-id="${r.expense_id}" class="delete-photo-btn" type="button" style="padding:2px 10px; font-size:12px;">ลบรูปนี้</button>
+              </span>
+            </div>`).join('');
       return `
         <div class="expense-item-card">
           <div class="top-line">
@@ -1795,20 +1805,14 @@ async function loadExpenseList() {
             <span>${r.quantity} × ${money(r.unit_price)} = ${money(lineTotal)}</span>
             <span style="display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px;">
               ${photoBtn}
-              <button data-id="${r.id}" class="edit-item-btn" type="button" style="padding:2px 10px; font-size:12px;">แก้ไขรายละเอียด</button>
-              <button data-id="${r.id}" class="edit-link-btn" type="button" style="padding:2px 10px; font-size:12px;">แก้ไขการผูก</button>
+              <button data-id="${r.id}" class="edit-panel-btn" type="button" style="padding:2px 10px; font-size:12px;">แก้ไข</button>
               <button data-id="${r.id}" class="delete-expense-item-btn" type="button" style="padding:2px 10px; font-size:12px;">ลบ</button>
             </span>
           </div>
-          <div class="sub-line">
-            <span>${acct ? acct.label_th : 'ไม่ระบุบัญชี'}${r.expenses.vendor ? ' · ' + r.expenses.vendor : ''}</span>
-            <button data-expense-id="${r.expense_id}" class="edit-receipt-btn" type="button" style="padding:2px 10px; font-size:12px;">แก้ไข</button>
-          </div>
+          <div class="sub-line"><span>${acct ? acct.label_th : 'ไม่ระบุบัญชี'}${r.expenses.vendor ? ' · ' + r.expenses.vendor : ''}</span></div>
           ${rawNameLine}
-          <div class="relink-row" data-id="${r.id}" style="display:none; margin-top:6px;">
-            <select class="relink-product-select" data-id="${r.id}" style="font-size:13px;">${productOptions}</select>
-          </div>
-          <div class="edit-item-row" data-id="${r.id}" style="display:none; margin-top:6px;">
+          <div class="edit-panel-row" data-id="${r.id}" style="display:none; margin-top:8px; padding-top:8px; border-top:1px dashed var(--border);">
+            <div style="font-weight:500; font-size:13px; margin-bottom:6px;">แก้ไขสินค้า</div>
             <div class="field" style="margin-bottom:6px;">
               <label>ชื่อสินค้า</label>
               <input type="text" class="edit-item-name" value="${r.item_name.replace(/"/g, '&quot;')}" list="product-name-list">
@@ -1822,8 +1826,9 @@ async function loadExpenseList() {
               <select class="edit-item-category">${categoryOptionsHtml(r.category_id)}</select>
             </div>
             <button data-id="${r.id}" class="save-item-edit-btn primary" type="button" style="font-size:12px; padding:4px 12px;">บันทึก</button>
-          </div>
-          <div class="edit-receipt-row" data-expense-id="${r.expense_id}" style="display:none; margin-top:6px;">
+
+            <div style="font-weight:500; font-size:13px; margin:14px 0 2px; padding-top:10px; border-top:0.5px solid var(--border);">ผู้ขาย / บัญชีที่จ่าย</div>
+            <p class="muted" style="margin:0 0 6px;">ใช้ร่วมกับทุกรายการในใบเสร็จนี้</p>
             <div class="field" style="margin-bottom:6px;">
               <label>ร้านค้า</label>
               <input type="text" class="edit-receipt-vendor" value="${(r.expenses.vendor || '').replace(/"/g, '&quot;')}" placeholder="เช่น Makro" list="vendor-name-list">
@@ -1833,6 +1838,15 @@ async function loadExpenseList() {
               <select class="edit-receipt-account">${accountOptions}</select>
             </div>
             <button data-expense-id="${r.expense_id}" class="save-receipt-edit-btn primary" type="button" style="font-size:12px; padding:4px 12px;">บันทึก</button>
+
+            <div style="font-weight:500; font-size:13px; margin:14px 0 6px; padding-top:10px; border-top:0.5px solid var(--border);">การผูกกับสินค้า</div>
+            <select class="relink-product-select" data-id="${r.id}" style="font-size:13px;">${productOptions}</select>
+
+            <div style="font-weight:500; font-size:13px; margin:14px 0 2px; padding-top:10px; border-top:0.5px solid var(--border);">รูปสลิป/เอกสาร</div>
+            <p class="muted" style="margin:0 0 6px;">ใช้ร่วมกับทุกรายการในใบเสร็จนี้</p>
+            <div class="edit-photo-list">${photoListHtml}</div>
+            <input type="file" class="add-photo-input" data-expense-id="${r.expense_id}" accept="image/*" multiple style="margin-top:6px;">
+            <div class="add-photo-status muted" data-expense-id="${r.expense_id}" style="margin-top:4px;"></div>
           </div>
         </div>
       `;
@@ -1854,24 +1868,65 @@ async function loadExpenseList() {
 
   container.querySelectorAll('.view-receipt-photo-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
+      // buttons inside the photo-list section pass a single path; the top-level "ดูรูปสลิป"
+      // button passes expense-id only and opens every photo on that receipt
+      const paths = btn.dataset.path ? [btn.dataset.path] : (photosByExpense[btn.dataset.expenseId] || []).map(p => p.path);
+      if (paths.length === 0) return;
       btn.disabled = true;
       const originalText = btn.textContent;
       btn.textContent = 'กำลังโหลด...';
-      const { data, error } = await sbClient.storage.from('receipts').createSignedUrl(btn.dataset.path, 60);
+      const results = await Promise.all(paths.map(p => sbClient.storage.from('receipts').createSignedUrl(p, 60)));
       btn.disabled = false;
       btn.textContent = originalText;
-      if (error || !data) {
-        alert('เปิดรูปไม่สำเร็จ: ' + (error?.message || 'unknown error'));
-        return;
-      }
-      window.open(data.signedUrl, '_blank');
+      let opened = 0;
+      results.forEach(({ data, error }) => {
+        if (!error && data) { window.open(data.signedUrl, '_blank'); opened++; }
+      });
+      if (opened === 0) alert('เปิดรูปไม่สำเร็จ');
     });
   });
 
-  container.querySelectorAll('.edit-link-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const row = container.querySelector(`.relink-row[data-id="${btn.dataset.id}"]`);
-      row.style.display = row.style.display === 'none' ? 'block' : 'none';
+  container.querySelectorAll('.delete-photo-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('ลบรูปนี้?')) return;
+      btn.disabled = true;
+      await sbClient.storage.from('receipts').remove([btn.dataset.path]);
+      if (btn.dataset.source === 'legacy') {
+        await sbClient.from('expenses').update({ receipt_photo_path: null }).eq('id', btn.dataset.expenseId);
+      } else {
+        await sbClient.from('expense_receipts').delete().eq('id', btn.dataset.receiptId);
+      }
+      loadExpenseList();
+    });
+  });
+
+  container.querySelectorAll('.add-photo-input').forEach(input => {
+    input.addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files || []);
+      if (files.length === 0) return;
+      const expenseId = input.dataset.expenseId;
+      const statusEl = container.querySelector(`.add-photo-status[data-expense-id="${expenseId}"]`);
+      statusEl.textContent = 'กำลังอัปโหลด...';
+      const parentRow = rows.find(x => x.expense_id === expenseId);
+      const monthPrefix = (parentRow?.expenses.expense_date || todayStr()).slice(0, 7);
+      try {
+        const blobs = await Promise.all(files.map(f => downscaleImage(f)));
+        const uploadedPaths = [];
+        for (let i = 0; i < blobs.length; i++) {
+          const path = `${monthPrefix}/${expenseId}-evidence-${Date.now()}-${i}.jpg`;
+          const { error } = await sbClient.storage.from('receipts').upload(path, blobs[i], { contentType: 'image/jpeg' });
+          if (!error) uploadedPaths.push(path);
+        }
+        if (uploadedPaths.length > 0) {
+          await sbClient.from('expense_receipts').insert(
+            uploadedPaths.map(path => ({ expense_id: expenseId, photo_path: path, created_by: currentSession.user.id }))
+          );
+        }
+        loadExpenseList();
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = 'อัปโหลดไม่สำเร็จ ลองใหม่อีกครั้ง';
+      }
     });
   });
 
@@ -1883,16 +1938,16 @@ async function loadExpenseList() {
     });
   });
 
-  container.querySelectorAll('.edit-item-btn').forEach(btn => {
+  container.querySelectorAll('.edit-panel-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      const row = container.querySelector(`.edit-item-row[data-id="${btn.dataset.id}"]`);
+      const row = container.querySelector(`.edit-panel-row[data-id="${btn.dataset.id}"]`);
       row.style.display = row.style.display === 'none' ? 'block' : 'none';
     });
   });
 
   container.querySelectorAll('.save-item-edit-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
-      const row = container.querySelector(`.edit-item-row[data-id="${btn.dataset.id}"]`);
+      const row = container.querySelector(`.edit-panel-row[data-id="${btn.dataset.id}"]`);
       const name = row.querySelector('.edit-item-name').value.trim();
       const quantity = Number(row.querySelector('.edit-item-quantity').value);
       const unitPrice = Number(row.querySelector('.edit-item-unit-price').value);
@@ -1909,18 +1964,11 @@ async function loadExpenseList() {
     });
   });
 
-  container.querySelectorAll('.edit-receipt-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const row = container.querySelector(`.edit-receipt-row[data-expense-id="${btn.dataset.expenseId}"]`);
-      row.style.display = row.style.display === 'none' ? 'block' : 'none';
-    });
-  });
-
   container.querySelectorAll('.save-receipt-edit-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
-      const row = container.querySelector(`.edit-receipt-row[data-expense-id="${btn.dataset.expenseId}"]`);
-      const vendor = row.querySelector('.edit-receipt-vendor').value.trim();
-      const accountId = row.querySelector('.edit-receipt-account').value;
+      const panel = btn.closest('.edit-panel-row');
+      const vendor = panel.querySelector('.edit-receipt-vendor').value.trim();
+      const accountId = panel.querySelector('.edit-receipt-account').value;
       btn.disabled = true;
       await sbClient.from('expenses').update({
         vendor: vendor || null, payment_account_id: accountId || null,
