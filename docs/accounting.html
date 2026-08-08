@@ -1729,6 +1729,8 @@ async function loadExpenseList() {
         ? `<div class="sub-line"><span class="muted">บันทึกไว้ว่า: ${r.item_name}</span></div>` : '';
       const photoBtn = r.expenses.receipt_photo_path
         ? `<button data-path="${r.expenses.receipt_photo_path}" class="view-receipt-photo-btn" type="button" style="padding:2px 10px; font-size:12px;">ดูรูปสลิป</button>` : '';
+      const productOptions = [`<option value="">— ไม่ผูก —</option>`]
+        .concat(productsList.map(p => `<option value="${p.id}" ${p.id === r.product_id ? 'selected' : ''}>${p.name}</option>`)).join('');
       return `
         <div class="expense-item-card">
           <div class="top-line">
@@ -1739,11 +1741,15 @@ async function loadExpenseList() {
             <span>${r.quantity} × ${money(r.unit_price)} = ${money(lineTotal)}</span>
             <span style="display:flex; gap:6px;">
               ${photoBtn}
+              <button data-id="${r.id}" class="edit-link-btn" type="button" style="padding:2px 10px; font-size:12px;">แก้ไขการผูก</button>
               <button data-id="${r.id}" class="delete-expense-item-btn" type="button" style="padding:2px 10px; font-size:12px;">ลบ</button>
             </span>
           </div>
           <div class="sub-line"><span>${acct ? acct.label_th : 'ไม่ระบุบัญชี'}${r.expenses.vendor ? ' · ' + r.expenses.vendor : ''}</span></div>
           ${rawNameLine}
+          <div class="relink-row" data-id="${r.id}" style="display:none; margin-top:6px;">
+            <select class="relink-product-select" data-id="${r.id}" style="font-size:13px;">${productOptions}</select>
+          </div>
         </div>
       `;
     }).join('')}
@@ -1775,6 +1781,21 @@ async function loadExpenseList() {
         return;
       }
       window.open(data.signedUrl, '_blank');
+    });
+  });
+
+  container.querySelectorAll('.edit-link-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const row = container.querySelector(`.relink-row[data-id="${btn.dataset.id}"]`);
+      row.style.display = row.style.display === 'none' ? 'block' : 'none';
+    });
+  });
+
+  container.querySelectorAll('.relink-product-select').forEach(sel => {
+    sel.addEventListener('change', async () => {
+      sel.disabled = true;
+      await sbClient.from('expense_items').update({ product_id: sel.value || null }).eq('id', sel.dataset.id);
+      loadExpenseList();
     });
   });
 }
