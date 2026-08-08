@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Buddy Brew Accounting</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5/papaparse.min.js"></script>
 <style>
   :root {
     --surface-2:#ffffff; --surface-1:#F1EFE8; --surface-0:#FAFAF8;
@@ -170,6 +172,89 @@
       <div class="field"><label>โน้ต (ถ้ามี)</label><textarea id="inc-note" rows="2"></textarea></div>
       <button id="save-income-btn" class="primary" style="width:100%;">บันทึก</button>
       <div id="income-save-banner" style="display:none; margin-top:10px;"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <label style="margin:0;">นำเข้าจาก Bank Statement</label>
+      <button id="toggle-import-btn" type="button">เริ่มนำเข้า</button>
+    </div>
+    <div id="import-wizard" style="display:none;">
+      <div class="field">
+        <label>ช่องทาง (ค่าเริ่มต้นของทุกแถว — แก้ทีละแถวได้ในขั้นตอนพรีวิว)</label>
+        <select id="import-channel"></select>
+      </div>
+      <div class="field">
+        <label>ไฟล์ CSV/Excel จาก internet banking</label>
+        <input id="import-file-input" type="file" accept=".csv,.xlsx,.xls">
+      </div>
+      <div id="import-parse-status" class="muted" style="display:none; margin-bottom:10px;"></div>
+
+      <div id="import-mapping" style="display:none;">
+        <div class="field"><label>คอลัมน์วันที่</label><select id="import-col-date"></select></div>
+        <div class="field">
+          <label>รูปแบบวันที่</label>
+          <select id="import-date-format">
+            <option value="DMY">วัน/เดือน/ปี (31/12/2569)</option>
+            <option value="YMD">ปี-เดือน-วัน (2569-12-31)</option>
+            <option value="MDY">เดือน/วัน/ปี (12/31/2569)</option>
+          </select>
+        </div>
+        <div class="field"><label>คอลัมน์จำนวนเงินเข้า</label><select id="import-col-amount"></select></div>
+        <div class="field"><label>คอลัมน์คำอธิบาย (ไม่บังคับ)</label><select id="import-col-desc"><option value="">— ไม่มี —</option></select></div>
+        <button id="import-preview-btn" class="primary" type="button" style="width:100%;">ดูตัวอย่างก่อนนำเข้า</button>
+      </div>
+
+      <div id="import-preview-section" style="display:none; margin-top:14px;">
+        <div id="import-preview-summary" class="muted" style="margin-bottom:10px;"></div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th></th><th>วันที่</th><th>จำนวนเงิน</th><th>คำอธิบาย</th><th>ช่องทาง</th></tr></thead>
+            <tbody id="import-preview-tbody"></tbody>
+          </table>
+        </div>
+        <button id="import-confirm-btn" class="primary" type="button" style="width:100%; margin-top:10px;">นำเข้ารายการที่เลือก</button>
+        <div id="import-save-banner" style="display:none; margin-top:10px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <label style="margin:0;">นำเข้ายอดขายจาก POS (ยอดตามระบบ)</label>
+      <button id="toggle-pos-import-btn" type="button">เริ่มนำเข้า</button>
+    </div>
+    <div id="pos-import-wizard" style="display:none;">
+      <p class="muted" style="margin:0 0 10px;">สำหรับรายงานสรุปยอดขายแยกตามประเภทการชำระเงินจาก POS (ยอดที่ระบบบันทึกไว้ ใช้เทียบกับยอดโอนเข้าจริงในแท็บกระทบยอด)</p>
+      <div class="row">
+        <div class="field"><label>วันที่ของรายงานนี้</label><input id="pos-import-date" type="date"></div>
+        <div class="field"><label>ข้ามกี่บรรทัดก่อนถึงหัวตาราง</label><input id="pos-import-skip-lines" type="number" min="0" value="0"></div>
+      </div>
+      <div class="field">
+        <label>ไฟล์ CSV/Excel จาก POS</label>
+        <input id="pos-import-file-input" type="file" accept=".csv,.xlsx,.xls">
+      </div>
+      <div id="pos-import-parse-status" class="muted" style="display:none; margin-bottom:10px;"></div>
+
+      <div id="pos-import-mapping" style="display:none;">
+        <div class="field"><label>คอลัมน์ประเภทการชำระเงิน</label><select id="pos-import-col-label"></select></div>
+        <div class="field"><label>คอลัมน์วิธีบันทึก (ไม่บังคับ)</label><select id="pos-import-col-method"><option value="">— ไม่มี —</option></select></div>
+        <div class="field"><label>คอลัมน์จำนวนเงิน</label><select id="pos-import-col-amount"></select></div>
+        <button id="pos-import-preview-btn" class="primary" type="button" style="width:100%;">ดูตัวอย่างก่อนนำเข้า</button>
+      </div>
+
+      <div id="pos-import-preview-section" style="display:none; margin-top:14px;">
+        <div id="pos-import-preview-summary" class="muted" style="margin-bottom:10px;"></div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th></th><th>ประเภทการชำระเงิน</th><th>จำนวนเงิน</th><th>ช่องทาง</th><th>Remark</th></tr></thead>
+            <tbody id="pos-import-preview-tbody"></tbody>
+          </table>
+        </div>
+        <button id="pos-import-confirm-btn" class="primary" type="button" style="width:100%; margin-top:10px;">นำเข้ารายการที่เลือก</button>
+        <div id="pos-import-save-banner" style="display:none; margin-top:10px;"></div>
+      </div>
     </div>
   </div>
 
@@ -667,8 +752,9 @@ document.getElementById('save-expense-btn').addEventListener('click', async () =
 
 // ---------- Add Income ----------
 function populateChannelSelect() {
-  const sel = document.getElementById('inc-channel');
-  sel.innerHTML = incomeChannels.map(c => `<option value="${c.id}">${c.label_th}</option>`).join('');
+  const optionsHtml = incomeChannels.map(c => `<option value="${c.id}">${c.label_th}</option>`).join('');
+  document.getElementById('inc-channel').innerHTML = optionsHtml;
+  document.getElementById('import-channel').innerHTML = optionsHtml;
 }
 
 document.getElementById('save-income-btn').addEventListener('click', async () => {
@@ -708,8 +794,422 @@ document.getElementById('save-income-btn').addEventListener('click', async () =>
   }
 });
 
+// ---------- Import income from bank statement ----------
+let importParsedRows = [];
+let importHeaders = [];
+let importPreviewRows = [];
+
+document.getElementById('toggle-import-btn').addEventListener('click', () => {
+  const wiz = document.getElementById('import-wizard');
+  const opening = wiz.style.display === 'none';
+  if (opening) resetImportWizard();
+  wiz.style.display = opening ? 'block' : 'none';
+});
+
+function resetImportWizard() {
+  importParsedRows = [];
+  importHeaders = [];
+  importPreviewRows = [];
+  document.getElementById('import-file-input').value = '';
+  document.getElementById('import-parse-status').style.display = 'none';
+  document.getElementById('import-mapping').style.display = 'none';
+  document.getElementById('import-preview-section').style.display = 'none';
+}
+
+// CSV goes through PapaParse (keeps every cell as the literal source text, no auto-typing) so date
+// strings like "01/07/2569" reach our own format-aware parser untouched. Real Excel files go through
+// SheetJS since only that binary format has genuine typed date cells worth trusting.
+document.getElementById('import-file-input').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const status = document.getElementById('import-parse-status');
+  status.style.display = 'block';
+  status.textContent = 'กำลังอ่านไฟล์...';
+  const isCsv = /\.csv$/i.test(file.name);
+  try {
+    let rows;
+    if (isCsv) {
+      const text = await file.text();
+      const result = Papa.parse(text, { header: true, skipEmptyLines: true, transformHeader: h => h.trim() });
+      rows = result.data;
+    } else {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+    }
+    if (!rows.length) {
+      status.textContent = 'อ่านไฟล์ไม่พบข้อมูล (แถวว่าง) กรุณาตรวจไฟล์อีกครั้ง';
+      return;
+    }
+    importParsedRows = rows;
+    importHeaders = Object.keys(rows[0]);
+    populateImportColumnSelects();
+    status.textContent = `อ่านไฟล์สำเร็จ ${rows.length} แถว — เลือกคอลัมน์ด้านล่างแล้วกด "ดูตัวอย่าง"`;
+    document.getElementById('import-mapping').style.display = 'block';
+    document.getElementById('import-preview-section').style.display = 'none';
+  } catch (err) {
+    console.error(err);
+    status.textContent = 'อ่านไฟล์ไม่สำเร็จ: ' + (err.message || String(err));
+  }
+});
+
+function populateImportColumnSelects() {
+  const opts = importHeaders.map(h => `<option value="${h.replace(/"/g, '&quot;')}">${h}</option>`).join('');
+  document.getElementById('import-col-date').innerHTML = opts;
+  document.getElementById('import-col-amount').innerHTML = opts;
+  document.getElementById('import-col-desc').innerHTML = '<option value="">— ไม่มี —</option>' + opts;
+}
+
+// Thai bank exports are usually DD/MM/YYYY, not ISO - also tolerates a stray Buddhist-era year (>2400 -> -543)
+function parseImportDate(raw, format) {
+  // genuine Excel date cell (SheetJS gave us a real Date object) - trust it directly, no format/era guessing needed
+  if (raw instanceof Date && !isNaN(raw)) return raw.toISOString().slice(0, 10);
+  // genuine Excel date cell that came through as a numeric serial instead (days since 1899-12-30)
+  if (typeof raw === 'number' && raw > 0) {
+    const d = new Date(Date.UTC(1899, 11, 30) + raw * 86400000);
+    return isNaN(d) ? null : d.toISOString().slice(0, 10);
+  }
+  const s = String(raw).trim();
+  const parts = s.split(/[\/\-.]/).map(p => p.trim());
+  if (parts.length !== 3) return null;
+  let d, m, y;
+  if (format === 'YMD') { [y, m, d] = parts; }
+  else if (format === 'MDY') { [m, d, y] = parts; }
+  else { [d, m, y] = parts; }
+  y = Number(y); m = Number(m); d = Number(d);
+  if (!y || !m || !d) return null;
+  if (y < 100) y += 2000;
+  if (y > 2400) y -= 543;
+  const iso = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  return /^\d{4}-\d{2}-\d{2}$/.test(iso) && !isNaN(new Date(iso)) ? iso : null;
+}
+
+function parseImportAmount(raw) {
+  if (typeof raw === 'number') return raw;
+  const cleaned = String(raw).replace(/,/g, '').trim();
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : null;
+}
+
+document.getElementById('import-preview-btn').addEventListener('click', async () => {
+  const dateCol = document.getElementById('import-col-date').value;
+  const amountCol = document.getElementById('import-col-amount').value;
+  const descCol = document.getElementById('import-col-desc').value;
+  const dateFormat = document.getElementById('import-date-format').value;
+  const defaultChannel = document.getElementById('import-channel').value;
+
+  const parsed = importParsedRows.map(row => ({
+    date: parseImportDate(row[dateCol], dateFormat),
+    amount: parseImportAmount(row[amountCol]),
+    description: descCol ? String(row[descCol] ?? '').trim() : '',
+  })).filter(r => r.date && r.amount != null && r.amount > 0); // only parseable, positive (credit) rows
+
+  if (parsed.length === 0) {
+    importPreviewRows = [];
+    renderImportPreview();
+    document.getElementById('import-preview-section').style.display = 'block';
+    return;
+  }
+
+  const dates = [...new Set(parsed.map(r => r.date))];
+  const { data: existing } = await sbClient.from('income_entries')
+    .select('entry_date, amount')
+    .eq('channel_id', defaultChannel)
+    .in('entry_date', dates);
+  const existingSet = new Set((existing || []).map(e => `${e.entry_date}|${Number(e.amount).toFixed(2)}`));
+
+  importPreviewRows = parsed.map(r => {
+    const isDup = existingSet.has(`${r.date}|${r.amount.toFixed(2)}`);
+    return { ...r, channelId: defaultChannel, isDup, include: !isDup };
+  });
+
+  renderImportPreview();
+  document.getElementById('import-preview-section').style.display = 'block';
+});
+
+function renderImportPreview() {
+  const tbody = document.getElementById('import-preview-tbody');
+  if (importPreviewRows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="muted" style="text-align:center; padding:1rem 0;">ไม่พบแถวที่นำเข้าได้ (ตรวจคอลัมน์/รูปแบบวันที่อีกครั้ง)</td></tr>`;
+    updateImportSummary();
+    return;
+  }
+  tbody.innerHTML = importPreviewRows.map((r, idx) => `
+    <tr>
+      <td><input type="checkbox" class="import-row-checkbox" data-idx="${idx}" ${r.include ? 'checked' : ''} style="width:auto;"></td>
+      <td>${r.date}</td>
+      <td class="num">${money(r.amount)}</td>
+      <td><span class="muted">${r.description || ''}</span>${r.isDup ? ' <span style="color:var(--danger); font-size:11px; font-weight:600;">อาจซ้ำ</span>' : ''}</td>
+      <td><select class="import-row-channel" data-idx="${idx}">${incomeChannels.map(c => `<option value="${c.id}" ${c.id === r.channelId ? 'selected' : ''}>${c.label_th}</option>`).join('')}</select></td>
+    </tr>
+  `).join('');
+
+  tbody.querySelectorAll('.import-row-checkbox').forEach(cb => {
+    cb.addEventListener('change', () => {
+      importPreviewRows[Number(cb.dataset.idx)].include = cb.checked;
+      updateImportSummary();
+    });
+  });
+  tbody.querySelectorAll('.import-row-channel').forEach(sel => {
+    sel.addEventListener('change', () => {
+      importPreviewRows[Number(sel.dataset.idx)].channelId = sel.value;
+    });
+  });
+
+  updateImportSummary();
+}
+
+function updateImportSummary() {
+  const included = importPreviewRows.filter(r => r.include);
+  const total = included.reduce((s, r) => s + r.amount, 0);
+  const dupCount = importPreviewRows.filter(r => r.isDup).length;
+  document.getElementById('import-preview-summary').textContent =
+    `เลือกไว้ ${included.length} จาก ${importPreviewRows.length} รายการ · ยอดรวม ${money(total)}` +
+    (dupCount ? ` · พบ ${dupCount} รายการที่อาจซ้ำกับที่มีอยู่แล้ว (ไม่ติ๊กไว้ให้อัตโนมัติ)` : '');
+}
+
+document.getElementById('import-confirm-btn').addEventListener('click', async () => {
+  const banner = document.getElementById('import-save-banner');
+  const toInsert = importPreviewRows.filter(r => r.include);
+  if (toInsert.length === 0) {
+    banner.className = 'banner err';
+    banner.textContent = 'ยังไม่ได้เลือกรายการที่จะนำเข้า';
+    banner.style.display = 'block';
+    return;
+  }
+  const btn = document.getElementById('import-confirm-btn');
+  btn.disabled = true;
+  try {
+    const { error } = await sbClient.from('income_entries').insert(
+      toInsert.map(r => ({
+        channel_id: r.channelId,
+        entry_date: r.date,
+        kind: 'deposited',
+        amount: r.amount,
+        note: r.description ? `นำเข้าจาก statement: ${r.description}` : 'นำเข้าจาก statement',
+        created_by: currentSession.user.id,
+      }))
+    );
+    if (error) throw error;
+    banner.className = 'banner ok';
+    banner.textContent = `นำเข้า ${toInsert.length} รายการเรียบร้อย ✓`;
+    banner.style.display = 'block';
+    resetImportWizard();
+    loadReconciliation();
+  } catch (err) {
+    console.error(err);
+    banner.className = 'banner err';
+    banner.textContent = 'นำเข้าไม่สำเร็จ: ' + (err.message || String(err));
+    banner.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ---------- Import sales summary from POS (by payment type -> kind='expected') ----------
+let posImportParsedRows = [];
+let posImportHeaders = [];
+let posImportPreviewRows = [];
+
+document.getElementById('toggle-pos-import-btn').addEventListener('click', () => {
+  const wiz = document.getElementById('pos-import-wizard');
+  const opening = wiz.style.display === 'none';
+  if (opening) resetPosImportWizard();
+  wiz.style.display = opening ? 'block' : 'none';
+});
+
+function resetPosImportWizard() {
+  posImportParsedRows = [];
+  posImportHeaders = [];
+  posImportPreviewRows = [];
+  document.getElementById('pos-import-file-input').value = '';
+  document.getElementById('pos-import-date').value = todayStr();
+  document.getElementById('pos-import-skip-lines').value = '0';
+  document.getElementById('pos-import-parse-status').style.display = 'none';
+  document.getElementById('pos-import-mapping').style.display = 'none';
+  document.getElementById('pos-import-preview-section').style.display = 'none';
+}
+
+function skipLeadingLines(text, n) {
+  if (!n) return text;
+  const lines = text.split(/\r\n|\r|\n/);
+  return lines.slice(n).join('\n');
+}
+
+function guessColumnByKeyword(headers, keywords) {
+  const lower = headers.map(h => h.toLowerCase());
+  for (const kw of keywords) {
+    const idx = lower.findIndex(h => h.includes(kw.toLowerCase()));
+    if (idx !== -1) return headers[idx];
+  }
+  return headers[0] || '';
+}
+
+// POS export can have a comment line before the real header row, and a "Total" row at the end -
+// same CSV-vs-Excel split as the bank-statement importer (SheetJS mis-parses date-like CSV text)
+document.getElementById('pos-import-file-input').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const status = document.getElementById('pos-import-parse-status');
+  status.style.display = 'block';
+  status.textContent = 'กำลังอ่านไฟล์...';
+  const skipLines = Number(document.getElementById('pos-import-skip-lines').value) || 0;
+  const isCsv = /\.csv$/i.test(file.name);
+  try {
+    let rows;
+    if (isCsv) {
+      const text = skipLeadingLines(await file.text(), skipLines);
+      const result = Papa.parse(text, { header: true, skipEmptyLines: true, transformHeader: h => h.trim() });
+      rows = result.data;
+    } else {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const aoa = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+      const dataRows = aoa.slice(skipLines);
+      const headerRow = (dataRows[0] || []).map(h => String(h).trim());
+      rows = dataRows.slice(1).map(r => {
+        const obj = {};
+        headerRow.forEach((h, i) => { obj[h] = r[i] !== undefined ? r[i] : ''; });
+        return obj;
+      });
+    }
+    if (!rows.length) {
+      status.textContent = 'อ่านไฟล์ไม่พบข้อมูล กรุณาตรวจจำนวนบรรทัดที่ข้ามอีกครั้ง';
+      return;
+    }
+    posImportParsedRows = rows;
+    posImportHeaders = Object.keys(rows[0]);
+    document.getElementById('pos-import-col-label').innerHTML = posImportHeaders.map(h => `<option value="${h.replace(/"/g, '&quot;')}">${h}</option>`).join('');
+    document.getElementById('pos-import-col-method').innerHTML = '<option value="">— ไม่มี —</option>' + posImportHeaders.map(h => `<option value="${h.replace(/"/g, '&quot;')}">${h}</option>`).join('');
+    const amountSel = document.getElementById('pos-import-col-amount');
+    amountSel.innerHTML = posImportHeaders.map(h => `<option value="${h.replace(/"/g, '&quot;')}">${h}</option>`).join('');
+    amountSel.value = guessColumnByKeyword(posImportHeaders, ['รวมสุทธิ', 'ยอดรวม', 'total']);
+    document.getElementById('pos-import-col-label').value = guessColumnByKeyword(posImportHeaders, ['ประเภทการชำระเงิน', 'payment']);
+    status.textContent = `อ่านไฟล์สำเร็จ ${rows.length} แถว — เลือกคอลัมน์ด้านล่างแล้วกด "ดูตัวอย่าง"`;
+    document.getElementById('pos-import-mapping').style.display = 'block';
+    document.getElementById('pos-import-preview-section').style.display = 'none';
+  } catch (err) {
+    console.error(err);
+    status.textContent = 'อ่านไฟล์ไม่สำเร็จ: ' + (err.message || String(err));
+  }
+});
+
+function guessChannelKey(label) {
+  const l = (label || '').toLowerCase();
+  if (l.includes('grab')) return 'grab';
+  if (l.includes('ไทยช่วยไทย') || l.includes('รัฐ')) return 'government';
+  return 'in_store';
+}
+
+document.getElementById('pos-import-preview-btn').addEventListener('click', () => {
+  const labelCol = document.getElementById('pos-import-col-label').value;
+  const methodCol = document.getElementById('pos-import-col-method').value;
+  const amountCol = document.getElementById('pos-import-col-amount').value;
+  const reportDate = document.getElementById('pos-import-date').value || todayStr();
+
+  posImportPreviewRows = posImportParsedRows
+    .map(row => ({
+      label: String(row[labelCol] ?? '').trim(),
+      method: methodCol ? String(row[methodCol] ?? '').trim() : '',
+      amount: parseImportAmount(row[amountCol]),
+    }))
+    .filter(r => r.label && r.label.toLowerCase() !== 'total' && r.amount != null)
+    .map(r => {
+      const ch = incomeChannels.find(c => c.key === guessChannelKey(r.label));
+      return {
+        ...r,
+        channelId: ch ? ch.id : (incomeChannels[0]?.id || ''),
+        note: `นำเข้าจาก POS: ${r.label}${r.method ? ' (' + r.method + ')' : ''}`,
+        include: true,
+      };
+    });
+
+  renderPosImportPreview(reportDate);
+  document.getElementById('pos-import-preview-section').style.display = 'block';
+});
+
+function renderPosImportPreview() {
+  const tbody = document.getElementById('pos-import-preview-tbody');
+  if (posImportPreviewRows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="muted" style="text-align:center; padding:1rem 0;">ไม่พบแถวที่นำเข้าได้ (ตรวจคอลัมน์/บรรทัดที่ข้ามอีกครั้ง)</td></tr>`;
+    updatePosImportSummary();
+    return;
+  }
+  tbody.innerHTML = posImportPreviewRows.map((r, idx) => `
+    <tr>
+      <td><input type="checkbox" class="pos-import-row-checkbox" data-idx="${idx}" ${r.include ? 'checked' : ''} style="width:auto;"></td>
+      <td>${r.label}${r.method ? '<br><span class="muted">' + r.method + '</span>' : ''}</td>
+      <td class="num">${money(r.amount)}</td>
+      <td><select class="pos-import-row-channel" data-idx="${idx}">${incomeChannels.map(c => `<option value="${c.id}" ${c.id === r.channelId ? 'selected' : ''}>${c.label_th}</option>`).join('')}</select></td>
+      <td><input type="text" class="pos-import-row-note" data-idx="${idx}" value="${r.note.replace(/"/g, '&quot;')}"></td>
+    </tr>
+  `).join('');
+
+  tbody.querySelectorAll('.pos-import-row-checkbox').forEach(cb => {
+    cb.addEventListener('change', () => { posImportPreviewRows[Number(cb.dataset.idx)].include = cb.checked; updatePosImportSummary(); });
+  });
+  tbody.querySelectorAll('.pos-import-row-channel').forEach(sel => {
+    sel.addEventListener('change', () => { posImportPreviewRows[Number(sel.dataset.idx)].channelId = sel.value; });
+  });
+  tbody.querySelectorAll('.pos-import-row-note').forEach(inp => {
+    inp.addEventListener('input', () => { posImportPreviewRows[Number(inp.dataset.idx)].note = inp.value; });
+  });
+
+  updatePosImportSummary();
+}
+
+function updatePosImportSummary() {
+  const included = posImportPreviewRows.filter(r => r.include);
+  const total = included.reduce((s, r) => s + r.amount, 0);
+  document.getElementById('pos-import-preview-summary').textContent =
+    `เลือกไว้ ${included.length} จาก ${posImportPreviewRows.length} รายการ · ยอดรวม ${money(total)}`;
+}
+
+document.getElementById('pos-import-confirm-btn').addEventListener('click', async () => {
+  const banner = document.getElementById('pos-import-save-banner');
+  const reportDate = document.getElementById('pos-import-date').value || todayStr();
+  const toInsert = posImportPreviewRows.filter(r => r.include);
+  if (toInsert.length === 0) {
+    banner.className = 'banner err';
+    banner.textContent = 'ยังไม่ได้เลือกรายการที่จะนำเข้า';
+    banner.style.display = 'block';
+    return;
+  }
+  const btn = document.getElementById('pos-import-confirm-btn');
+  btn.disabled = true;
+  try {
+    const { error } = await sbClient.from('income_entries').insert(
+      toInsert.map(r => ({
+        channel_id: r.channelId,
+        entry_date: reportDate,
+        kind: 'expected',
+        amount: r.amount,
+        note: r.note || null,
+        created_by: currentSession.user.id,
+      }))
+    );
+    if (error) throw error;
+    banner.className = 'banner ok';
+    banner.textContent = `นำเข้า ${toInsert.length} รายการเรียบร้อย ✓`;
+    banner.style.display = 'block';
+    resetPosImportWizard();
+    loadReconciliation();
+  } catch (err) {
+    console.error(err);
+    banner.className = 'banner err';
+    banner.textContent = 'นำเข้าไม่สำเร็จ: ' + (err.message || String(err));
+    banner.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 // ---------- Reconciliation ----------
 document.getElementById('recon-month').addEventListener('change', loadReconciliation);
+
+let reconEntriesCache = [];
 
 async function loadReconciliation() {
   const month = document.getElementById('recon-month').value;
@@ -718,31 +1218,93 @@ async function loadReconciliation() {
   const end = new Date(new Date(start).getFullYear(), new Date(start).getMonth() + 1, 1).toISOString().slice(0, 10);
 
   const { data, error } = await sbClient.from('income_entries')
-    .select('channel_id, kind, amount')
+    .select('id, channel_id, kind, amount, entry_date, note')
     .gte('entry_date', start)
-    .lt('entry_date', end);
+    .lt('entry_date', end)
+    .order('entry_date', { ascending: false });
 
   const container = document.getElementById('recon-cards');
   if (error) {
     container.innerHTML = `<div class="banner err">โหลดข้อมูลไม่สำเร็จ</div>`;
     return;
   }
+  reconEntriesCache = data || [];
 
   container.innerHTML = incomeChannels.map(ch => {
-    const rows = (data || []).filter(r => r.channel_id === ch.id);
+    const rows = reconEntriesCache.filter(r => r.channel_id === ch.id);
     const expected = rows.filter(r => r.kind === 'expected').reduce((s, r) => s + Number(r.amount), 0);
     const deposited = rows.filter(r => r.kind === 'deposited').reduce((s, r) => s + Number(r.amount), 0);
     const diff = deposited - expected;
     const diffColor = Math.abs(diff) < 0.01 ? 'var(--text-secondary)' : (diff < 0 ? 'var(--danger)' : 'var(--accent)');
     return `
       <div style="margin-bottom:14px;">
-        <div style="font-weight:500; margin-bottom:6px;">${ch.label_th}</div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <div style="font-weight:500;">${ch.label_th}</div>
+          <button class="toggle-recon-detail-btn" data-channel="${ch.id}" type="button" style="padding:3px 10px; font-size:12px;">ดูรายการ (${rows.length})</button>
+        </div>
         <div class="recon-card"><span class="muted">ยอดตามระบบ</span><span>${money(expected)}</span></div>
         <div class="recon-card"><span class="muted">ยอดโอนเข้าจริง</span><span>${money(deposited)}</span></div>
         <div class="recon-card"><span class="muted">ส่วนต่าง</span><span style="color:${diffColor}; font-weight:500;">${money(diff)}</span></div>
+        <div id="recon-detail-${ch.id}" style="display:none; margin-top:8px;"></div>
       </div>
     `;
   }).join('');
+
+  document.querySelectorAll('.toggle-recon-detail-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const detail = document.getElementById('recon-detail-' + btn.dataset.channel);
+      const opening = detail.style.display === 'none';
+      if (opening) renderReconDetail(btn.dataset.channel);
+      detail.style.display = opening ? 'block' : 'none';
+    });
+  });
+}
+
+const reconKindLabel = { expected: 'ยอดตามระบบ', deposited: 'ยอดโอนเข้าจริง' };
+
+function renderReconDetail(channelId) {
+  const detail = document.getElementById('recon-detail-' + channelId);
+  const rows = reconEntriesCache.filter(r => r.channel_id === channelId);
+  if (rows.length === 0) {
+    detail.innerHTML = `<p class="muted" style="text-align:center; padding:0.5rem 0;">ไม่มีรายการ</p>`;
+    return;
+  }
+  detail.innerHTML = `
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>วันที่</th><th>ประเภท</th><th>จำนวนเงิน</th><th>Remark</th><th></th></tr></thead>
+        <tbody>
+          ${rows.map(r => `
+            <tr>
+              <td>${r.entry_date}</td>
+              <td>${reconKindLabel[r.kind] || r.kind}</td>
+              <td class="num">${money(r.amount)}</td>
+              <td><input type="text" class="recon-note-input" data-id="${r.id}" value="${(r.note || '').replace(/"/g, '&quot;')}"></td>
+              <td><button data-id="${r.id}" class="delete-recon-entry-btn" type="button" style="padding:2px 10px; font-size:12px;">ลบ</button></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  detail.querySelectorAll('.recon-note-input').forEach(inp => {
+    inp.addEventListener('change', async () => {
+      await sbClient.from('income_entries').update({ note: inp.value || null }).eq('id', inp.dataset.id);
+      const cached = reconEntriesCache.find(r => r.id === inp.dataset.id);
+      if (cached) cached.note = inp.value;
+    });
+  });
+  detail.querySelectorAll('.delete-recon-entry-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('ลบรายการนี้?')) return;
+      btn.disabled = true;
+      await sbClient.from('income_entries').delete().eq('id', btn.dataset.id);
+      await loadReconciliation();
+      const detailAfter = document.getElementById('recon-detail-' + channelId);
+      if (detailAfter) { detailAfter.style.display = 'block'; renderReconDetail(channelId); }
+    });
+  });
 }
 
 // ---------- Monthly Report ----------
