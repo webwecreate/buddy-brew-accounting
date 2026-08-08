@@ -82,7 +82,8 @@ buddy-brew-accounting/
 │       ├── 20260720091000_accounting_receipts_bucket.sql ← storage bucket 'receipts'
 │       ├── 20260720092000_assets_liabilities_tables.sql  ← assets, liabilities, liability_payments
 │       ├── 20260721010000_expense_payment_accounts.sql   ← payment_accounts, expenses.payment_account_id (แทน payment_method เดิม)
-│       └── 20260721020000_products_conversion.sql        ← products, expense_items.product_id
+│       ├── 20260721020000_products_conversion.sql        ← products, expense_items.product_id
+│       └── 20260808100000_expense_receipts_multi.sql      ← expense_receipts (แนบสลิปได้หลายรูปต่อใบเสร็จ)
 └── .github/workflows/deploy-functions.yml  ← auto-deploy edge functions
 ```
 
@@ -129,6 +130,11 @@ trigger `trg_recalc_liability_paid_amount` → คำนวณ `liabilities.paid
 
 **เหตุผลที่ต้อง track เจ้าหนี้แยกประเภท**: ผ่อนหมดกับ vendor ไม่ได้แปลว่าร้านหมดหนี้เสมอไป — ถ้าเงินที่โปะ vendor แต่ละงวดมาจากกระเป๋าเจ้าของเอง (ไม่ใช่รายได้ร้าน) ร้านจะกลายเป็นหนี้เจ้าของคนนั้นแทน ต้องทยอยคืนจากกำไรจริง แยกจากการแบ่งกำไรปกติระหว่างเจ้าของ 2 คน
 
+### `expense_receipts` — รูปสลิป/เอกสารหลักฐานเพิ่มเติม (แนบได้หลายรูปต่อ 1 ใบเสร็จ)
+`expense_id FK (on delete cascade), photo_path, created_by, created_at`
+
+`expenses.receipt_photo_path` เดิม (คอลัมน์เดียว) ยังใช้อยู่สำหรับรูปที่มาจากช่อง OCR ด้านบนสุด (ยังจำกัดรูปเดียวเหมือนเดิม ไม่กระทบข้อมูลเก่า) — ส่วนช่อง "แนบรูปสลิป/เอกสาร (หลักฐาน)" ในฟอร์มกรอกเอง เลือกได้หลายไฟล์พร้อมกัน แต่ละไฟล์ insert เป็น 1 แถวในตารางนี้ ฝั่ง UI (แท็บรายการรายจ่าย) รวมรูปจากทั้งสองแหล่งเข้าด้วยกันตอนแสดงปุ่ม "ดูรูปสลิป"
+
 ### `products` — ชื่อสินค้ากลาง + หน่วยแปลง
 `name (unique), category_id FK, purchase_unit_label (เช่น 'แพ็ค (6 ขวด)'), usage_unit_label (เช่น 'ขวด'/'กรัม'/'มล.'), conversion_qty (1 หน่วยซื้อ = กี่หน่วยใช้งาน, > 0), note, active, created_by, created_at`
 
@@ -152,7 +158,7 @@ Storage bucket `receipts` (private) ก็ใช้โมเดลเดีย�
 
 หน้าเดียว ไม่มี router, toggle ด้วย `.tabbar button[data-tab]` + `#tab-<name>` — ทุกแท็บที่โชว์ข้อมูลรวม (recon/report/assets) reload ข้อมูลใหม่ตอนเปิดแท็บเสมอ (ดูข้อ 11 บั๊กที่เจอ)
 
-1. **เพิ่มรายจ่าย** — 2 ทาง: (a) ถ่ายรูปใบเสร็จผ่านช่องบนสุด → OCR (`receipt-ocr` function) prefill รายการสินค้าเป็นแถวๆ (ชื่อ/จำนวน/ราคา/หมวด) → แก้ไขได้ทุกช่องก่อนบันทึกเสมอ หรือ (b) กด "กรอกเอง" ข้าม OCR ทั้งหมด — ทั้งสองทางมีช่อง**แนบรูปสลิปเป็นหลักฐาน**แยกต่างหากก่อนปุ่มบันทึก (ไม่เรียก OCR ซ้ำ ไม่เสียค่า API เพิ่ม แค่ย่อรูปแล้วอัปโหลดตอนบันทึก) → เลือก "จ่ายจากบัญชี" (SCB/KTB/กรุงศรี/เงินสด/เงินส่วนตัวเจ้าของ) → insert `expenses` + `expense_items` + อัปโหลดรูปเข้า bucket `receipts` (private) — `expenses.source` บันทึกตามจริงว่ารูปมาจาก OCR หรือแนบเองแยกจากการกรอกฟอร์ม
+1. **เพิ่มรายจ่าย** — 2 ทาง: (a) ถ่ายรูปใบเสร็จผ่านช่องบนสุด → OCR (`receipt-ocr` function) prefill รายการสินค้าเป็นแถวๆ (ชื่อ/จำนวน/ราคา/หมวด) → แก้ไขได้ทุกช่องก่อนบันทึกเสมอ หรือ (b) กด "กรอกเอง" ข้าม OCR ทั้งหมด — ทั้งสองทางมีช่อง**แนบรูปสลิป/เอกสารเป็นหลักฐาน**แยกต่างหากก่อนปุ่มบันทึก (ไม่เรียก OCR ซ้ำ ไม่เสียค่า API เพิ่ม แค่ย่อรูปแล้วอัปโหลดตอนบันทึก, ไม่บังคับ `capture` เพื่อให้เลือกจากอัลบั้ม/คลังรูปได้ ไม่ใช่เปิดกล้องอย่างเดียว, เลือกได้หลายไฟล์พร้อมกัน — เก็บลง `expense_receipts`) → เลือก "จ่ายจากบัญชี" (SCB/KTB/กรุงศรี/เงินสด/เงินส่วนตัวเจ้าของ) → insert `expenses` + `expense_items` + อัปโหลดรูปเข้า bucket `receipts` (private) — `expenses.source` บันทึกตามจริงว่ารูปมาจาก OCR หรือแนบเองแยกจากการกรอกฟอร์ม
 2. **รายการรายจ่าย** — ledger/บัญชีแยกประเภท (ต่างจาก "รายงานเดือน" ที่เป็นสรุปภาพใหญ่): browse รายการรายจ่ายแบบรายไอเทม, ปุ่ม preset วันนี้/เดือนนี้/เดือนที่แล้ว หรือกรองเองตามช่วงวันที่/หมวดหมู่/บัญชีที่จ่าย, จัดกลุ่มตามวันที่, ปุ่ม **"ดูรูปสลิป"** ต่อรายการ (ถ้ามีรูปแนบ — สร้าง signed URL ชั่วคราวจาก bucket private แล้วเปิดดู เพราะ bucket ไม่มี public access), ปุ่ม **"แก้ไขการผูก"** ต่อรายการ (เปิด dropdown เลือกสินค้าใหม่ หรือเลือก "— ไม่ผูก —" เพื่อยกเลิกการผูก — ใช้แก้เวลาผูกสินค้าผิด เพราะเครื่องมือกวาด duplicate ในแท็บ "สินค้า" ดูแลได้แค่รายการที่ยังไม่ผูกเท่านั้น ไม่ครอบคลุมรายการที่ผูกผิดไปแล้ว), ลบรายการได้ (ลบ item สุดท้ายของใบเสร็จแล้ว auto ลบ header ที่ว่างเปล่าทิ้งด้วย) — ยังไม่มีปุ่มแก้ไขจำนวน/ราคา (เป็น scope รอบถัดไปถ้าต้องการ)
 3. **เพิ่มรายรับ** — เลือกช่องทาง + ประเภทยอด (ตามระบบ/โอนเข้าจริง) → insert `income_entries` · มี 2 ตัวช่วยนำเข้าในตัว:
    - **นำเข้าจาก Bank Statement** (CSV ผ่าน PapaParse, Excel ผ่าน SheetJS — แยก parser 2 ทางเพราะ SheetJS auto-detect วันที่ในข้อความ CSV ผิด ต้องให้ CSV ได้ raw string เสมอแล้วพาร์สวันที่เองตามฟอร์แมตที่เลือก DD/MM/YYYY เป็นค่า default): เลือกช่องทาง default → อัปโหลดไฟล์ → จับคู่คอลัมน์ (วันที่/จำนวนเงิน/คำอธิบาย) + เลือกรูปแบบวันที่ → พรีวิวก่อนนำเข้า (กรองแถวไม่เป็นบวกออกอัตโนมัติ, เช็คซ้ำกับ `(entry_date, amount)` ที่มีอยู่แล้วในช่องทางเดียวกัน ติดป้าย "อาจซ้ำ" auto-uncheck, แก้ช่องทางต่อแถวได้) → bulk insert เป็น `kind='deposited'` ทั้งหมด
@@ -176,6 +182,7 @@ Storage bucket `receipts` (private) ก็ใช้โมเดลเดีย�
 - [x] Phase 5b: นำเข้ายอดขายจาก POS (kind='expected') + แท็บกระทบยอดดูรายละเอียดเป็นรายการ (แก้ remark/ลบได้) + แก้ label `income_channels.government` เป็น "ไทยช่วยไทย พลัส" — ทดสอบกับไฟล์ POS จริงของร้านผ่านหมด (skip-line, กรอง Total, เดาช่องทางถูกทุกแถว, ยอดรวมตรงกับไฟล์ต้นฉบับ 102,812.50, แก้ remark/ลบใน UI persist จริง)
 - [x] แนบรูปสลิปเป็นหลักฐานได้ทั้ง OCR/กรอกเอง (ไม่ผูกกับการเรียก OCR อีกต่อไป) + ปุ่ม "ดูรูปสลิป" ในแท็บรายการรายจ่าย (signed URL จาก private bucket) + ปุ่ม preset "เดือนที่แล้ว" — ทดสอบผ่าน throwaway account: แนบรูปแบบกรอกเองไม่เรียก OCR, `expenses.source='manual'` ถูกต้อง, อัปโหลดขึ้น bucket จริง, เปิดดูรูปผ่าน signed URL สำเร็จ (200 image/jpeg), preset เดือนที่แล้วคำนวณช่วงวันที่ถูกต้อง
 - [x] ปุ่ม "แก้ไขการผูก" ในแท็บรายการรายจ่าย — แก้ไข/ยกเลิกการผูกสินค้าของรายการที่ผูกไปแล้ว (เดิมมีแค่เครื่องมือกวาดรายการที่ยังไม่ผูก) — ทดสอบผ่าน throwaway account: unlink สำเร็จ (product_id → null), relink ไปสินค้าอื่นสำเร็จ
+- [x] แนบรูปสลิปได้หลายรูป + เลือกจากอัลบั้มได้ (ตัด `capture=environment` ออกจากช่องแนบหลักฐาน) — เพิ่มตาราง `expense_receipts`, ทดสอบผ่าน throwaway account: แนบ 2 รูปพร้อมกันสำเร็จ, บันทึกลง `expense_receipts` ถูกต้อง, แท็บรายการรายจ่ายแสดงปุ่ม "รูป 1"/"รูป 2" เปิดได้จริงทั้งคู่, mobile viewport (375px) wrap ปุ่มไม่ล้นจอ, ยืนยัน RLS บล็อก anon ทั้ง select/insert (ระวัง: การทดสอบ anon ด้วย `createClient()` ตัวที่สองในหน้าเดิมจะ**หลอกผ่าน**เพราะ localStorage session ของ client ที่ login ไว้แล้วถูกแชร์ข้ามกัน ต้องทดสอบด้วย raw `fetch` ที่ใส่แค่ publishable key เท่านั้นถึงจะแม่นยำ)
 - [x] เอกสาร architecture ถาวร (`CLAUDE.md`/`PROJECT_OVERVIEW.md`) — อัปเดตต่อเนื่องทุก phase
 
 ## Phase ถัดไป (ยังไม่เริ่ม)
@@ -198,6 +205,7 @@ Storage bucket `receipts` (private) ก็ใช้โมเดลเดีย�
 6. **`db query --linked --reveal` ของ legacy JWT key (anon/service_role แบบเก่า) โชว์เต็มโดยไม่ต้องขอ reveal พิเศษ** ต่างจาก key รูปแบบใหม่ (`sb_secret_...`) ที่ mask ให้อัตโนมัติ — ระวังเวลา debug อย่า echo output ที่มี legacy key ออกมาเต็มๆ ในที่ที่เก็บ log ไว้นาน
 7. **Invoke-RestMethod ของ PowerShell โดน Supabase บล็อกตอนใช้ secret key** ("Forbidden use of secret API key in browser") เพราะ Supabase ตรวจ User-Agent แล้วคิดว่าเป็น browser — แก้ด้วยการใส่ `-UserAgent "some-non-browser-string"` ตอนเรียก
 8. **SheetJS (`XLSX.read`) auto-detect วันที่ใน CSV แล้วตีความผิด** — ข้อความ "01/07/2569" (ตั้งใจให้เป็น DD/MM/YYYY พ.ศ.) ถูก SheetJS เดาเป็นวันที่เองแล้วแปลงเป็น Date/serial โดยไม่สนใจ format ที่ user เลือกและไม่แปลง พ.ศ.→ค.ศ. ให้ (ได้ปี "2569" ทื่อๆ ปนกับเดือน/วันที่สลับกัน) เกิดเฉพาะไฟล์ CSV (ไฟล์ Excel จริงที่มี cell type ชัดเจนไม่มีปัญหานี้) — แก้โดยแยก parser: **CSV ใช้ PapaParse** (ได้ raw string เสมอ ไม่ auto-type) แล้วพาร์สวันที่เองตาม format ที่เลือก, **Excel (.xlsx/.xls) ใช้ SheetJS ตามเดิม** (เชื่อ cell type จริงได้เพราะไม่ใช่การเดาจากข้อความ)
+9. **ทดสอบ RLS ด้วย `supabase.createClient()` ตัวที่สองในหน้าเดิมอาจให้ผลลวง** — ถ้า client ตัวแรกในหน้า login ไว้แล้ว การสร้าง client ใหม่ (แม้จะตั้งใจส่ง anon/publishable key) จะ**แชร์ session เดิมผ่าน localStorage โดยอัตโนมัติ** (คีย์ localStorage ผูกกับ project URL ไม่ใช่ client instance) ทำให้ทดสอบ "anon เข้าไม่ได้" แล้วเห็นว่าเข้าได้ทั้งที่จริงๆ ไม่ใช่ — วิธีทดสอบที่แม่นยำคือยิง raw `fetch()` ตรงไปที่ REST endpoint ใส่แค่ header `apikey`/`Authorization: Bearer <publishable key>` เท่านั้น ไม่ผ่าน supabase-js client เลย
 
 ---
 
