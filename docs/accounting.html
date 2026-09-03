@@ -446,6 +446,9 @@ const loginForm = document.getElementById('login-form');
 const loginError = document.getElementById('login-error');
 
 function money(n) { return (Math.round((n + Number.EPSILON) * 100) / 100).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' บาท'; }
+// per-usage-unit prices (e.g. บาท/กรัม) can be tiny fractions of a baht — money()'s 2-decimal
+// rounding shows these as "0.00", so this keeps up to 4 decimal places instead
+function moneyPerUnit(n) { return n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) + ' บาท'; }
 function todayStr() { return new Date().toISOString().slice(0, 10); }
 function thisMonthStr() { return new Date().toISOString().slice(0, 7); }
 
@@ -2051,7 +2054,7 @@ async function loadProducts() {
 
   document.getElementById('product-list-tbody').innerHTML = productsList.map(p => {
     const latestPrice = latestByProduct[p.id];
-    const perUsage = latestPrice != null ? money(latestPrice / p.conversion_qty) + ' / ' + p.usage_unit_label : '—';
+    const perUsage = latestPrice != null ? moneyPerUnit(latestPrice / p.conversion_qty) + ' / ' + p.usage_unit_label : '—';
     return `<tr><td>${p.name}</td><td>${p.purchase_unit_label} → ${p.usage_unit_label}</td><td>${p.conversion_qty}</td><td>${perUsage}</td><td><button data-id="${p.id}" class="edit-product-btn" type="button">แก้ไข</button></td></tr>`;
   }).join('');
 
