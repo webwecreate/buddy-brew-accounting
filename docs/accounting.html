@@ -279,7 +279,7 @@
   <div id="tab-report" class="tab-panel" style="display:none;">
     <div class="card">
       <div class="field"><label>เดือน</label><input id="report-month" type="month"></div>
-      <div id="report-income-summary" class="muted" style="margin-bottom:10px;"></div>
+      <div id="report-income-summary" style="margin-bottom:10px; font-size:13px;"></div>
       <div class="table-scroll">
         <table>
           <thead><tr><th>หมวด</th><th>ตามโมเดล</th><th>จริง</th><th>ส่วนต่าง</th></tr></thead>
@@ -1286,7 +1286,10 @@ async function loadReconciliation() {
   const month = document.getElementById('recon-month').value;
   if (!month) return;
   const start = `${month}-01`;
-  const end = new Date(new Date(start).getFullYear(), new Date(start).getMonth() + 1, 1).toISOString().slice(0, 10);
+  // see loadReport() for why this avoids toISOString() — it can shift the boundary back a day
+  const [reconYear, reconMonth] = month.split('-').map(Number);
+  const reconNextMonthDate = new Date(reconYear, reconMonth, 1);
+  const end = `${reconNextMonthDate.getFullYear()}-${String(reconNextMonthDate.getMonth() + 1).padStart(2, '0')}-01`;
 
   const { data, error } = await sbClient.from('income_entries')
     .select('id, channel_id, kind, amount, entry_date, note')
@@ -1385,7 +1388,12 @@ async function loadReport() {
   const month = document.getElementById('report-month').value;
   if (!month) return;
   const start = `${month}-01`;
-  const end = new Date(new Date(start).getFullYear(), new Date(start).getMonth() + 1, 1).toISOString().slice(0, 10);
+  // build the "first day of next month" from local calendar fields only — never round-trip through
+  // toISOString(), which converts to UTC and can shift the date backward a day in UTC+ timezones
+  // (silently excluded the month's last day from every query here until this was caught)
+  const [reportYear, reportMonth] = month.split('-').map(Number);
+  const nextMonthDate = new Date(reportYear, reportMonth, 1);
+  const end = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}-01`;
 
   const [itemsRes, incomeRes, expensesByAccountRes, assetsByAccountRes, liabPaymentsByAccountRes] = await Promise.all([
     sbClient.from('expense_items')
@@ -1440,8 +1448,6 @@ async function loadReport() {
 
   const totalIncome = (incomeRes.data || []).reduce((s, r) => s + Number(r.amount), 0);
   const totalExpense = Object.values(actualByCategory).reduce((s, v) => s + v, 0);
-  document.getElementById('report-income-summary').textContent =
-    `รายรับ (ยอดโอนเข้าจริง): ${money(totalIncome)}  ·  รายจ่ายรวม: ${money(totalExpense)}  ·  คงเหลือโดยประมาณ: ${money(totalIncome - totalExpense)}`;
 
   const byAccount = {};
   (expensesByAccountRes.data || []).forEach(row => {
@@ -1465,13 +1471,25 @@ async function loadReport() {
       }).join('')
     : `<tr><td colspan="2" class="muted">ไม่มีรายจ่ายเดือนนี้</td></tr>`;
 
-  // asset/liability figures are point-in-time balances, not filtered by the report's selected month
+  // book value is a point-in-time balance (today), not filtered by the report's selected month —
+  // but this-month depreciation needs ALL assets (including ones disposed after this month), so
+  // fetch unfiltered and derive both figures client-side
   const [assetsForReportRes, liabForReportRes] = await Promise.all([
-    sbClient.from('assets').select('*').eq('status', 'active'),
+    sbClient.from('assets').select('*'),
     sbClient.from('liabilities').select('*').eq('status', 'open'),
   ]);
-  const totalBookValue = (assetsForReportRes.data || []).reduce((s, a) => s + assetDepreciation(a).bookValue, 0);
+  const allAssets = assetsForReportRes.data || [];
+  const totalBookValue = allAssets.filter(a => a.status === 'active').reduce((s, a) => s + assetDepreciation(a).bookValue, 0);
   document.getElementById('report-assets-summary').textContent = `มูลค่าทรัพย์สินคงเหลือ (สุทธิ ณ วันนี้): ${money(totalBookValue)}`;
+
+  // this month's depreciation slice = accumulated as of the month's end boundary minus
+  // accumulated as of its start boundary — reuses the existing whole-month-granularity logic
+  const monthlyDepreciation = allAssets.reduce((s, a) =>
+    s + (assetDepreciation(a, new Date(end)).accumulated - assetDepreciation(a, new Date(start)).accumulated), 0);
+  const netProfit = totalIncome - totalExpense - monthlyDepreciation;
+  document.getElementById('report-income-summary').innerHTML =
+    `รายรับ (ยอดโอนเข้าจริง): ${money(totalIncome)}  ·  รายจ่ายดำเนินงาน: ${money(totalExpense)}  ·  ค่าเสื่อมเดือนนี้: ${money(monthlyDepreciation)}<br>` +
+    `<strong>กำไรสุทธิ (รวมค่าเสื่อม): ${money(netProfit)}</strong>  <span class="muted">— คนละตัวกับเงินสดในมือ เพราะไม่รวมเงินซื้อทรัพย์สิน/คืนหนี้ที่จ่ายจริง ดูยอดเงินสดจากตาราง "เงินออกจากบัญชี" ด้านล่างแทน</span>`;
 
   const byCreditor = {};
   (liabForReportRes.data || []).forEach(l => {
