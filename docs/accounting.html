@@ -286,7 +286,7 @@
           <tbody id="report-tbody"></tbody>
         </table>
       </div>
-      <label style="margin-top:10px;">รายจ่ายแยกตามบัญชีที่จ่าย</label>
+      <label style="margin-top:10px;">เงินออกจากบัญชี (รายจ่าย + ซื้อทรัพย์สิน + จ่ายคืนหนี้)</label>
       <div class="table-scroll">
         <table>
           <thead><tr><th>บัญชี</th><th>ยอดจ่าย</th></tr></thead>
@@ -325,13 +325,17 @@
           <div class="field"><label>วันที่ซื้อ</label><input id="asset-date" type="date"></div>
         </div>
         <div class="field"><label>อายุใช้งาน (เดือน)</label><input id="asset-life" type="number" min="1" value="24"></div>
+        <div class="field">
+          <label>จ่ายจากบัญชี (ถ้ามี — เว้นว่างได้ถ้าไม่ได้จ่ายผ่านบัญชีร้าน เช่น เจ้าของจ่ายตรงให้ผู้ขาย)</label>
+          <select id="asset-payment-account"><option value="">— ไม่ระบุ —</option></select>
+        </div>
         <div class="field"><label>โน้ต (ถ้ามี)</label><textarea id="asset-note" rows="2"></textarea></div>
         <button id="save-asset-btn" class="primary" style="width:100%;">บันทึก</button>
         <div id="asset-save-banner" style="display:none; margin-top:10px;"></div>
       </div>
       <div class="table-scroll">
         <table>
-          <thead><tr><th>ชื่อ</th><th>หมวด</th><th>ราคาซื้อ</th><th>ค่าเสื่อมสะสม</th><th>คงเหลือ</th><th>สถานะ</th><th></th></tr></thead>
+          <thead><tr><th>ชื่อ</th><th>หมวด</th><th>ราคาซื้อ</th><th>จ่ายจากบัญชี</th><th>ค่าเสื่อมสะสม</th><th>คงเหลือ</th><th>สถานะ</th><th></th></tr></thead>
           <tbody id="asset-list-tbody"></tbody>
         </table>
       </div>
@@ -540,6 +544,8 @@ document.querySelectorAll('.tabbar button').forEach(btn => {
 function populatePaymentAccountSelect() {
   const sel = document.getElementById('exp-payment-account');
   sel.innerHTML = paymentAccounts.map(a => `<option value="${a.id}">${a.label_th}</option>`).join('');
+  const optionalOptions = `<option value="">— ไม่ระบุ —</option>` + paymentAccounts.map(a => `<option value="${a.id}">${a.label_th}</option>`).join('');
+  document.getElementById('asset-payment-account').innerHTML = optionalOptions;
 }
 
 function categoryOptionsHtml(selectedId) {
@@ -1381,7 +1387,7 @@ async function loadReport() {
   const start = `${month}-01`;
   const end = new Date(new Date(start).getFullYear(), new Date(start).getMonth() + 1, 1).toISOString().slice(0, 10);
 
-  const [itemsRes, incomeRes, expensesByAccountRes] = await Promise.all([
+  const [itemsRes, incomeRes, expensesByAccountRes, assetsByAccountRes, liabPaymentsByAccountRes] = await Promise.all([
     sbClient.from('expense_items')
       .select('category_id, quantity, unit_price, expenses!inner(expense_date)')
       .gte('expenses.expense_date', start)
@@ -1395,6 +1401,14 @@ async function loadReport() {
       .select('amount, payment_account_id')
       .gte('expense_date', start)
       .lt('expense_date', end),
+    sbClient.from('assets')
+      .select('purchase_price, payment_account_id')
+      .gte('purchase_date', start)
+      .lt('purchase_date', end),
+    sbClient.from('liability_payments')
+      .select('amount, payment_account_id')
+      .gte('payment_date', start)
+      .lt('payment_date', end),
   ]);
 
   const tbody = document.getElementById('report-tbody');
@@ -1431,6 +1445,14 @@ async function loadReport() {
 
   const byAccount = {};
   (expensesByAccountRes.data || []).forEach(row => {
+    const key = row.payment_account_id || '_none';
+    byAccount[key] = (byAccount[key] || 0) + Number(row.amount);
+  });
+  (assetsByAccountRes.data || []).forEach(row => {
+    const key = row.payment_account_id || '_none';
+    byAccount[key] = (byAccount[key] || 0) + Number(row.purchase_price);
+  });
+  (liabPaymentsByAccountRes.data || []).forEach(row => {
     const key = row.payment_account_id || '_none';
     byAccount[key] = (byAccount[key] || 0) + Number(row.amount);
   });
@@ -1510,11 +1532,13 @@ function renderAssetList() {
   const tbody = document.getElementById('asset-list-tbody');
   tbody.innerHTML = assetsList.map(a => {
     const { accumulated, bookValue } = assetDepreciation(a);
+    const acct = paymentAccounts.find(p => p.id === a.payment_account_id);
     return `
       <tr>
         <td>${a.name}</td>
         <td>${assetCategoryLabel[a.category] || a.category}</td>
         <td>${money(a.purchase_price)}</td>
+        <td>${acct ? acct.label_th : '—'}</td>
         <td>${money(accumulated)}</td>
         <td>${money(bookValue)}</td>
         <td>${a.status === 'disposed' ? 'เลิกใช้' : 'ใช้งาน'}</td>
@@ -1545,6 +1569,7 @@ function populateCreditorNameList() {
 
 function renderLiabilityList() {
   const tbody = document.getElementById('liability-list-tbody');
+  const accountOptions = `<option value="">— ไม่ระบุ —</option>` + paymentAccounts.map(a => `<option value="${a.id}">${a.label_th}</option>`).join('');
   tbody.innerHTML = liabilitiesList.map(l => {
     const remaining = Number(l.original_amount) - Number(l.paid_amount);
     return `
@@ -1560,6 +1585,12 @@ function renderLiabilityList() {
         <div class="row" style="margin-top:6px; align-items:end;">
           <div class="field" style="margin-bottom:0;"><input id="payment-date-${l.id}" type="date" value="${todayStr()}"></div>
           <div class="field" style="margin-bottom:0;"><input id="payment-amount-${l.id}" type="number" min="0" step="0.01" placeholder="จำนวนเงิน"></div>
+        </div>
+        <div class="row" style="margin-top:6px; align-items:end;">
+          <div class="field" style="margin-bottom:0;">
+            <label>จ่ายจากบัญชี</label>
+            <select id="payment-account-${l.id}">${accountOptions}</select>
+          </div>
           <button data-id="${l.id}" class="save-payment-btn primary" type="button" style="flex:0 0 auto; height:38px;">บันทึก</button>
         </div>
       </td></tr>
@@ -1577,10 +1608,11 @@ function renderLiabilityList() {
       const id = btn.dataset.id;
       const amount = Number(document.getElementById('payment-amount-' + id).value);
       const date = document.getElementById('payment-date-' + id).value || todayStr();
+      const accountId = document.getElementById('payment-account-' + id).value || null;
       if (!amount || amount <= 0) return;
       btn.disabled = true;
       await sbClient.from('liability_payments').insert({
-        liability_id: id, payment_date: date, amount, created_by: currentSession.user.id,
+        liability_id: id, payment_date: date, amount, payment_account_id: accountId, created_by: currentSession.user.id,
       });
       loadAssetsLiabilities();
     });
@@ -1605,6 +1637,7 @@ document.getElementById('save-asset-btn').addEventListener('click', async () => 
       purchase_price: price,
       purchase_date: date,
       useful_life_months: Number(document.getElementById('asset-life').value) || 24,
+      payment_account_id: document.getElementById('asset-payment-account').value || null,
       note: document.getElementById('asset-note').value || null,
       created_by: currentSession.user.id,
     });
@@ -1614,6 +1647,7 @@ document.getElementById('save-asset-btn').addEventListener('click', async () => 
     banner.style.display = 'block';
     document.getElementById('asset-name').value = '';
     document.getElementById('asset-price').value = '';
+    document.getElementById('asset-payment-account').value = '';
     document.getElementById('asset-note').value = '';
     loadAssetsLiabilities();
   } catch (err) {
