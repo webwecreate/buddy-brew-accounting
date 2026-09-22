@@ -2107,7 +2107,19 @@ async function loadProducts() {
   document.getElementById('product-list-tbody').innerHTML = productsList.map(p => {
     const latestPrice = latestByProduct[p.id];
     const perUsage = latestPrice != null ? moneyPerUnit(latestPrice / p.conversion_qty) + ' / ' + p.usage_unit_label : '—';
-    return `<tr><td>${p.name}</td><td>${p.purchase_unit_label} → ${p.usage_unit_label}</td><td>${p.conversion_qty}</td><td>${perUsage}</td><td><button data-id="${p.id}" class="edit-product-btn" type="button">แก้ไข</button></td></tr>`;
+    return `
+      <tr>
+        <td>${p.name}</td>
+        <td>${p.purchase_unit_label} → ${p.usage_unit_label}</td>
+        <td>${p.conversion_qty}</td>
+        <td>${perUsage}</td>
+        <td style="white-space:nowrap;">
+          <button data-id="${p.id}" class="view-product-history-btn" type="button">ดูประวัติ</button>
+          <button data-id="${p.id}" class="edit-product-btn" type="button">แก้ไข</button>
+        </td>
+      </tr>
+      <tr id="product-history-row-${p.id}" style="display:none;"><td colspan="5"></td></tr>
+    `;
   }).join('');
 
   document.querySelectorAll('.edit-product-btn').forEach(btn => {
@@ -2117,9 +2129,83 @@ async function loadProducts() {
     });
   });
 
+  document.querySelectorAll('.view-product-history-btn').forEach(btn => {
+    btn.addEventListener('click', () => toggleProductHistory(btn.dataset.id));
+  });
+
   populateProductLinkSelect();
   populateItemNameDatalist();
   await loadUnlinkedItems();
+}
+
+function median(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+async function toggleProductHistory(productId) {
+  const row = document.getElementById('product-history-row-' + productId);
+  const showing = row.style.display !== 'none';
+  if (showing) {
+    row.style.display = 'none';
+    return;
+  }
+  row.style.display = 'table-row';
+  const cell = row.querySelector('td');
+  cell.innerHTML = '<span class="muted">กำลังโหลด...</span>';
+
+  const product = productsList.find(p => p.id === productId);
+  const { data, error } = await sbClient.from('expense_items')
+    .select('id, quantity, unit_price, expenses!inner(expense_date, vendor)')
+    .eq('product_id', productId)
+    .order('expense_date', { foreignTable: 'expenses', ascending: false });
+
+  if (error) {
+    cell.innerHTML = '<span class="banner err">โหลดประวัติไม่สำเร็จ</span>';
+    return;
+  }
+  const rows = data || [];
+  if (rows.length === 0) {
+    cell.innerHTML = '<p class="muted" style="margin:6px 0;">ยังไม่มีรายการที่ผูกกับสินค้านี้</p>';
+    return;
+  }
+
+  const perUsagePrices = rows.map(r => Number(r.unit_price) / product.conversion_qty);
+  const med = median(perUsagePrices);
+
+  cell.innerHTML = `
+    <div class="table-scroll" style="margin:6px 0;">
+      <table>
+        <thead><tr><th>วันที่</th><th>ร้านค้า</th><th>จำนวน × ราคา/หน่วยซื้อ</th><th>ราคา/หน่วยใช้งาน</th><th></th></tr></thead>
+        <tbody>
+          ${rows.map((r, i) => {
+            const perUsage = perUsagePrices[i];
+            const isOutlier = med > 0 && Math.abs(perUsage - med) / med > 0.3;
+            return `
+              <tr>
+                <td>${thaiDateStr(r.expenses.expense_date)}</td>
+                <td>${r.expenses.vendor || '—'}</td>
+                <td>${r.quantity} × ${money(r.unit_price)}</td>
+                <td>${moneyPerUnit(perUsage)} / ${product.usage_unit_label}${isOutlier ? ' ⚠️' : ''}</td>
+                <td><button data-id="${r.id}" data-product-id="${productId}" class="unlink-from-history-btn" type="button" style="padding:2px 10px; font-size:12px;">ลบการผูก</button></td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  cell.querySelectorAll('.unlink-from-history-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('ลบการผูกรายการนี้ออกจากสินค้า?')) return;
+      btn.disabled = true;
+      await sbClient.from('expense_items').update({ product_id: null }).eq('id', btn.dataset.id);
+      await loadProducts();
+      await toggleProductHistory(btn.dataset.productId);
+    });
+  });
 }
 
 function populateProductLinkSelect() {
