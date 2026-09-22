@@ -1882,8 +1882,12 @@ async function loadExpenseList() {
             </div>
             <button data-id="${r.id}" class="save-item-edit-btn primary" type="button" style="font-size:12px; padding:4px 12px;">บันทึก</button>
 
-            <div style="font-weight:500; font-size:13px; margin:14px 0 2px; padding-top:10px; border-top:0.5px solid var(--border);">ผู้ขาย / บัญชีที่จ่าย</div>
+            <div style="font-weight:500; font-size:13px; margin:14px 0 2px; padding-top:10px; border-top:0.5px solid var(--border);">วันที่ / ผู้ขาย / บัญชีที่จ่าย</div>
             <p class="muted" style="margin:0 0 6px;">ใช้ร่วมกับทุกรายการในใบเสร็จนี้</p>
+            <div class="field" style="margin-bottom:6px;">
+              <label>วันที่</label>
+              <input type="date" class="edit-receipt-date" value="${r.expenses.expense_date}">
+            </div>
             <div class="field" style="margin-bottom:6px;">
               <label>ร้านค้า</label>
               <input type="text" class="edit-receipt-vendor" value="${(r.expenses.vendor || '').replace(/"/g, '&quot;')}" placeholder="เช่น Makro" list="vendor-name-list">
@@ -2022,11 +2026,16 @@ async function loadExpenseList() {
   container.querySelectorAll('.save-receipt-edit-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       const panel = btn.closest('.edit-panel-row');
+      const date = panel.querySelector('.edit-receipt-date').value;
       const vendor = panel.querySelector('.edit-receipt-vendor').value.trim();
       const accountId = panel.querySelector('.edit-receipt-account').value;
+      if (!date) {
+        alert('กรุณาเลือกวันที่');
+        return;
+      }
       btn.disabled = true;
       await sbClient.from('expenses').update({
-        vendor: vendor || null, payment_account_id: accountId || null,
+        expense_date: date, vendor: vendor || null, payment_account_id: accountId || null,
       }).eq('id', btn.dataset.expenseId);
       loadExpenseList();
     });
