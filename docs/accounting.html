@@ -557,7 +557,7 @@ function renderItemsTable() {
   tbody.innerHTML = expenseItems.map((it, idx) => `
     <tr class="item-row">
       <td><input data-idx="${idx}" data-field="item_name" type="text" list="product-name-list" value="${(it.item_name || '').replace(/"/g, '&quot;')}"></td>
-      <td><input data-idx="${idx}" data-field="quantity" type="number" min="0" step="0.01" value="${it.quantity}"></td>
+      <td><input data-idx="${idx}" data-field="quantity" type="number" min="0" step="1" value="${it.quantity}"></td>
       <td><input data-idx="${idx}" data-field="unit_price" type="number" min="0" step="0.01" value="${it.unit_price}"></td>
       <td><select data-idx="${idx}" data-field="category_id">${categoryOptionsHtml(it.category_id)}</select></td>
       <td><button data-idx="${idx}" class="remove-item-btn" type="button">✕</button></td>
@@ -1873,7 +1873,7 @@ async function loadExpenseList() {
               <input type="text" class="edit-item-name" value="${r.item_name.replace(/"/g, '&quot;')}" list="product-name-list">
             </div>
             <div class="row" style="margin-bottom:6px;">
-              <div class="field"><label>จำนวน</label><input type="number" class="edit-item-quantity" value="${r.quantity}" min="0" step="any"></div>
+              <div class="field"><label>จำนวน</label><input type="number" class="edit-item-quantity" value="${r.quantity}" min="0" step="1"></div>
               <div class="field"><label>ราคา/หน่วย</label><input type="number" class="edit-item-unit-price" value="${r.unit_price}" min="0" step="any"></div>
             </div>
             <div class="field" style="margin-bottom:6px;">
