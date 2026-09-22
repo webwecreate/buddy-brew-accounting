@@ -330,6 +330,11 @@
           <select id="asset-payment-account"><option value="">— ไม่ระบุ —</option></select>
         </div>
         <div class="field"><label>โน้ต (ถ้ามี)</label><textarea id="asset-note" rows="2"></textarea></div>
+        <div class="field">
+          <label>แนบรูปสลิป/ใบเสร็จ (หลักฐาน, ถ้ามี — เลือกได้หลายรูป)</label>
+          <input id="asset-photo-input" type="file" accept="image/*" multiple>
+          <div id="asset-photo-status" class="muted" style="margin-top:4px;"></div>
+        </div>
         <button id="save-asset-btn" class="primary" style="width:100%;">บันทึก</button>
         <div id="asset-save-banner" style="display:none; margin-top:10px;"></div>
       </div>
@@ -443,6 +448,7 @@ let expenseItems = []; // draft rows for the expense form: {item_name, quantity,
 let receiptPhotoBlob = null;
 let receiptPhotoFromOcr = false; // true only if the photo came through the OCR input, for accurate expenses.source
 let evidencePhotoBlobs = []; // multiple manually-attached evidence photos, saved into expense_receipts
+let assetPhotoBlobs = []; // multiple manually-attached evidence photos for a new asset, saved into asset_receipts
 
 const loginScreen = document.getElementById('login-screen');
 const appEl = document.getElementById('app');
@@ -1560,8 +1566,12 @@ function renderAssetList() {
         <td>${money(accumulated)}</td>
         <td>${money(bookValue)}</td>
         <td>${a.status === 'disposed' ? 'เลิกใช้' : 'ใช้งาน'}</td>
-        <td>${a.status === 'active' ? `<button data-id="${a.id}" class="dispose-asset-btn" type="button">ปิดใช้งาน</button>` : ''}</td>
+        <td style="white-space:nowrap;">
+          <button data-id="${a.id}" class="view-asset-photos-btn" type="button">ดูรูป</button>
+          ${a.status === 'active' ? `<button data-id="${a.id}" class="dispose-asset-btn" type="button">ปิดใช้งาน</button>` : ''}
+        </td>
       </tr>
+      <tr id="asset-photos-row-${a.id}" style="display:none;"><td colspan="8"></td></tr>
     `;
   }).join('');
   tbody.querySelectorAll('.dispose-asset-btn').forEach(btn => {
@@ -1569,6 +1579,92 @@ function renderAssetList() {
       await sbClient.from('assets').update({ status: 'disposed', disposed_date: todayStr() }).eq('id', btn.dataset.id);
       loadAssetsLiabilities();
     });
+  });
+  tbody.querySelectorAll('.view-asset-photos-btn').forEach(btn => {
+    btn.addEventListener('click', () => toggleAssetPhotos(btn.dataset.id));
+  });
+}
+
+async function toggleAssetPhotos(assetId) {
+  const row = document.getElementById('asset-photos-row-' + assetId);
+  const showing = row.style.display !== 'none';
+  if (showing) {
+    row.style.display = 'none';
+    return;
+  }
+  row.style.display = 'table-row';
+  await renderAssetPhotoList(assetId);
+}
+
+async function renderAssetPhotoList(assetId) {
+  const row = document.getElementById('asset-photos-row-' + assetId);
+  const cell = row.querySelector('td');
+  cell.innerHTML = '<span class="muted">กำลังโหลด...</span>';
+
+  const { data, error } = await sbClient.from('asset_receipts').select('id, photo_path').eq('asset_id', assetId).order('created_at');
+  if (error) {
+    cell.innerHTML = '<span class="banner err">โหลดรูปไม่สำเร็จ</span>';
+    return;
+  }
+  const photos = data || [];
+
+  cell.innerHTML = `
+    <div class="asset-photo-list" style="margin:6px 0;">
+      ${photos.length === 0 ? '<p class="muted" style="margin:4px 0;">ยังไม่มีรูปแนบ</p>' : photos.map((p, i) => `
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; padding:3px 0;">
+          <span class="muted">รูป ${i + 1}</span>
+          <span style="display:flex; gap:6px;">
+            <button data-path="${p.photo_path}" class="view-asset-photo-btn" type="button" style="padding:2px 10px; font-size:12px;">ดู</button>
+            <button data-id="${p.id}" data-path="${p.photo_path}" class="delete-asset-photo-btn" type="button" style="padding:2px 10px; font-size:12px;">ลบ</button>
+          </span>
+        </div>
+      `).join('')}
+    </div>
+    <input type="file" class="add-asset-photo-input" accept="image/*" multiple style="margin-top:4px;">
+    <div class="add-asset-photo-status muted" style="margin-top:4px;"></div>
+  `;
+
+  cell.querySelectorAll('.view-asset-photo-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const { data: signed, error: signErr } = await sbClient.storage.from('receipts').createSignedUrl(btn.dataset.path, 60);
+      if (signErr || !signed) { alert('เปิดรูปไม่สำเร็จ'); return; }
+      window.open(signed.signedUrl, '_blank');
+    });
+  });
+
+  cell.querySelectorAll('.delete-asset-photo-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('ลบรูปนี้?')) return;
+      btn.disabled = true;
+      await sbClient.storage.from('receipts').remove([btn.dataset.path]);
+      await sbClient.from('asset_receipts').delete().eq('id', btn.dataset.id);
+      await renderAssetPhotoList(assetId);
+    });
+  });
+
+  cell.querySelector('.add-asset-photo-input').addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    const statusEl = cell.querySelector('.add-asset-photo-status');
+    statusEl.textContent = 'กำลังอัปโหลด...';
+    try {
+      const blobs = await Promise.all(files.map(f => downscaleImage(f)));
+      const uploadedPaths = [];
+      for (let i = 0; i < blobs.length; i++) {
+        const path = `assets/${assetId}-${Date.now()}-${i}.jpg`;
+        const { error: uploadErr } = await sbClient.storage.from('receipts').upload(path, blobs[i], { contentType: 'image/jpeg' });
+        if (!uploadErr) uploadedPaths.push(path);
+      }
+      if (uploadedPaths.length > 0) {
+        await sbClient.from('asset_receipts').insert(
+          uploadedPaths.map(path => ({ asset_id: assetId, photo_path: path, created_by: currentSession.user.id }))
+        );
+      }
+      await renderAssetPhotoList(assetId);
+    } catch (err) {
+      console.error(err);
+      statusEl.textContent = 'อัปโหลดไม่สำเร็จ ลองใหม่อีกครั้ง';
+    }
   });
 }
 
@@ -1637,6 +1733,20 @@ function renderLiabilityList() {
   });
 }
 
+document.getElementById('asset-photo-input').addEventListener('change', async (e) => {
+  const files = Array.from(e.target.files || []);
+  if (files.length === 0) return;
+  const status = document.getElementById('asset-photo-status');
+  status.textContent = 'กำลังเตรียมรูป...';
+  try {
+    assetPhotoBlobs = await Promise.all(files.map(f => downscaleImage(f)));
+    status.textContent = `แนบแล้ว ${assetPhotoBlobs.length} รูป ✓`;
+  } catch (err) {
+    console.error(err);
+    status.textContent = 'แนบรูปไม่สำเร็จ ลองใหม่อีกครั้ง';
+  }
+});
+
 document.getElementById('save-asset-btn').addEventListener('click', async () => {
   const banner = document.getElementById('asset-save-banner');
   const name = document.getElementById('asset-name').value.trim();
@@ -1649,7 +1759,7 @@ document.getElementById('save-asset-btn').addEventListener('click', async () => 
     return;
   }
   try {
-    const { error } = await sbClient.from('assets').insert({
+    const { data: assetRow, error } = await sbClient.from('assets').insert({
       name,
       category: document.getElementById('asset-category').value,
       purchase_price: price,
@@ -1658,8 +1768,23 @@ document.getElementById('save-asset-btn').addEventListener('click', async () => 
       payment_account_id: document.getElementById('asset-payment-account').value || null,
       note: document.getElementById('asset-note').value || null,
       created_by: currentSession.user.id,
-    });
+    }).select('id').single();
     if (error) throw error;
+
+    if (assetPhotoBlobs.length > 0) {
+      const uploadedPaths = [];
+      for (let i = 0; i < assetPhotoBlobs.length; i++) {
+        const path = `assets/${assetRow.id}-${Date.now()}-${i}.jpg`;
+        const { error: uploadErr } = await sbClient.storage.from('receipts').upload(path, assetPhotoBlobs[i], { contentType: 'image/jpeg' });
+        if (!uploadErr) uploadedPaths.push(path);
+      }
+      if (uploadedPaths.length > 0) {
+        await sbClient.from('asset_receipts').insert(
+          uploadedPaths.map(path => ({ asset_id: assetRow.id, photo_path: path, created_by: currentSession.user.id }))
+        );
+      }
+    }
+
     banner.className = 'banner ok';
     banner.textContent = 'บันทึกแล้ว ✓';
     banner.style.display = 'block';
@@ -1667,6 +1792,9 @@ document.getElementById('save-asset-btn').addEventListener('click', async () => 
     document.getElementById('asset-price').value = '';
     document.getElementById('asset-payment-account').value = '';
     document.getElementById('asset-note').value = '';
+    document.getElementById('asset-photo-input').value = '';
+    document.getElementById('asset-photo-status').textContent = '';
+    assetPhotoBlobs = [];
     loadAssetsLiabilities();
   } catch (err) {
     console.error(err);
