@@ -434,6 +434,16 @@
   </div>
 </div>
 
+<!-- shared modal: preview a selected photo full-size before it's treated as attached/uploaded,
+     since a small gallery-grid thumbnail makes it easy to pick the wrong one -->
+<div id="photo-preview-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:1000; padding:16px; overflow-y:auto;">
+  <div id="photo-preview-images" style="display:flex; flex-direction:column; gap:12px; align-items:center; max-width:480px; margin:0 auto;"></div>
+  <div style="position:sticky; bottom:0; display:flex; gap:10px; max-width:480px; margin:16px auto 0; background:var(--surface-2); padding:10px; border-radius:12px;">
+    <button id="photo-preview-cancel-btn" type="button" style="flex:1;">ยกเลิก</button>
+    <button id="photo-preview-confirm-btn" class="primary" type="button" style="flex:1;">ยืนยัน</button>
+  </div>
+</div>
+
 <script>
 const SUPABASE_URL = "https://xsokynhtoxktazlomsnx.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_r-BdEYs8q61oSQKv_qJpPw_Xh5BPgRa";
@@ -617,8 +627,10 @@ function resetExpenseForm() {
 }
 
 document.getElementById('evidence-photo-input').addEventListener('change', async (e) => {
-  const files = Array.from(e.target.files || []);
-  if (files.length === 0) return;
+  const rawFiles = Array.from(e.target.files || []);
+  if (rawFiles.length === 0) return;
+  const files = await previewPhotosBeforeConfirm(rawFiles);
+  if (!files) { e.target.value = ''; return; }
   const status = document.getElementById('evidence-photo-status');
   status.textContent = 'กำลังเตรียมรูป...';
   try {
@@ -649,6 +661,59 @@ document.getElementById('add-item-row-btn').addEventListener('click', () => {
   addBlankItemRow();
   renderItemsTable();
 });
+
+// shows the selected file(s) full-size in a modal so a mis-tap in the OS's small gallery-grid
+// picker can be caught before the photo is actually treated as attached — resolves with the
+// confirmed File[] (user can drop individual ones first) or null if cancelled
+function previewPhotosBeforeConfirm(files) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('photo-preview-modal');
+    const imagesContainer = document.getElementById('photo-preview-images');
+    const confirmBtn = document.getElementById('photo-preview-confirm-btn');
+    const cancelBtn = document.getElementById('photo-preview-cancel-btn');
+
+    let selected = [...files];
+    let objectUrls = selected.map(f => URL.createObjectURL(f));
+
+    function render() {
+      imagesContainer.innerHTML = selected.map((f, i) => `
+        <div style="position:relative; width:100%;">
+          <img src="${objectUrls[i]}" style="width:100%; border-radius:8px; display:block;">
+          ${selected.length > 1 ? `<button data-idx="${i}" class="photo-preview-remove-btn" type="button" style="position:absolute; top:8px; right:8px; background:rgba(0,0,0,0.6); color:#fff; border:none; border-radius:50%; width:30px; height:30px; font-size:16px; line-height:1;">✕</button>` : ''}
+        </div>
+      `).join('');
+      confirmBtn.textContent = selected.length > 1 ? `ยืนยัน (${selected.length} รูป)` : 'ยืนยัน';
+      confirmBtn.disabled = selected.length === 0;
+      imagesContainer.querySelectorAll('.photo-preview-remove-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = Number(btn.dataset.idx);
+          URL.revokeObjectURL(objectUrls[idx]);
+          selected.splice(idx, 1);
+          objectUrls.splice(idx, 1);
+          render();
+        });
+      });
+    }
+    render();
+    modal.style.display = 'block';
+
+    function cleanup() {
+      modal.style.display = 'none';
+      objectUrls.forEach(u => URL.revokeObjectURL(u));
+      confirmBtn.onclick = null;
+      cancelBtn.onclick = null;
+    }
+    confirmBtn.onclick = () => {
+      const result = [...selected];
+      cleanup();
+      resolve(result.length ? result : null);
+    };
+    cancelBtn.onclick = () => {
+      cleanup();
+      resolve(null);
+    };
+  });
+}
 
 // resize image client-side to keep OCR calls fast/cheap, cap longest edge at 1600px
 function downscaleImage(file, maxEdge = 1600, quality = 0.8) {
@@ -686,8 +751,11 @@ function blobToBase64(blob) {
 }
 
 document.getElementById('receipt-photo-input').addEventListener('change', async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
+  const rawFile = e.target.files[0];
+  if (!rawFile) return;
+  const confirmedFiles = await previewPhotosBeforeConfirm([rawFile]);
+  if (!confirmedFiles) { e.target.value = ''; return; }
+  const file = confirmedFiles[0];
 
   const ocrStatus = document.getElementById('ocr-status');
   ocrStatus.style.display = 'block';
@@ -1699,8 +1767,10 @@ async function renderAssetPhotoList(assetId) {
   });
 
   cell.querySelector('.add-asset-photo-input').addEventListener('change', async (e) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
+    const rawFiles = Array.from(e.target.files || []);
+    if (rawFiles.length === 0) return;
+    const files = await previewPhotosBeforeConfirm(rawFiles);
+    if (!files) { e.target.value = ''; return; }
     const statusEl = cell.querySelector('.add-asset-photo-status');
     statusEl.textContent = 'กำลังอัปโหลด...';
     try {
@@ -1790,8 +1860,10 @@ function renderLiabilityList() {
   tbody.querySelectorAll('[id^="payment-photo-input-"]').forEach(input => {
     input.addEventListener('change', async (e) => {
       const liabId = input.id.replace('payment-photo-input-', '');
-      const files = Array.from(e.target.files || []);
-      if (files.length === 0) return;
+      const rawFiles = Array.from(e.target.files || []);
+      if (rawFiles.length === 0) return;
+      const files = await previewPhotosBeforeConfirm(rawFiles);
+      if (!files) { e.target.value = ''; return; }
       const status = document.getElementById('payment-photo-status-' + liabId);
       status.textContent = 'กำลังเตรียมรูป...';
       try {
@@ -1960,8 +2032,10 @@ async function renderLiabilityPaymentPhotoList(paymentId) {
   });
 
   cell.querySelector('.add-liability-payment-photo-input').addEventListener('change', async (e) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
+    const rawFiles = Array.from(e.target.files || []);
+    if (rawFiles.length === 0) return;
+    const files = await previewPhotosBeforeConfirm(rawFiles);
+    if (!files) { e.target.value = ''; return; }
     const statusEl = cell.querySelector('.add-liability-payment-photo-status');
     statusEl.textContent = 'กำลังอัปโหลด...';
     try {
@@ -1986,8 +2060,10 @@ async function renderLiabilityPaymentPhotoList(paymentId) {
 }
 
 document.getElementById('asset-photo-input').addEventListener('change', async (e) => {
-  const files = Array.from(e.target.files || []);
-  if (files.length === 0) return;
+  const rawFiles = Array.from(e.target.files || []);
+  if (rawFiles.length === 0) return;
+  const files = await previewPhotosBeforeConfirm(rawFiles);
+  if (!files) { e.target.value = ''; return; }
   const status = document.getElementById('asset-photo-status');
   status.textContent = 'กำลังเตรียมรูป...';
   try {
@@ -2399,8 +2475,10 @@ async function loadExpenseList() {
 
   container.querySelectorAll('.add-photo-input').forEach(input => {
     input.addEventListener('change', async (e) => {
-      const files = Array.from(e.target.files || []);
-      if (files.length === 0) return;
+      const rawFiles = Array.from(e.target.files || []);
+      if (rawFiles.length === 0) return;
+      const files = await previewPhotosBeforeConfirm(rawFiles);
+      if (!files) { e.target.value = ''; return; }
       const expenseId = input.dataset.expenseId;
       const statusEl = container.querySelector(`.add-photo-status[data-expense-id="${expenseId}"]`);
       statusEl.textContent = 'กำลังอัปโหลด...';
