@@ -2167,6 +2167,7 @@ async function loadExpenseList() {
 
   const container = document.getElementById('expense-list-container');
   let rows;
+  let recentExpenseCount = 0; // "recent" mode limits by receipt, not by line item — track separately for the summary text
 
   if (expenseListMode === 'recent') {
     // PostgREST's order(col, {foreignTable}) only orders rows WITHIN a nested/embedded
@@ -2188,6 +2189,7 @@ async function loadExpenseList() {
     const expenseById = {};
     (recentExpenses || []).forEach(e => { expenseById[e.id] = e; });
     const expenseIds = (recentExpenses || []).map(e => e.id);
+    recentExpenseCount = expenseIds.length;
     if (expenseIds.length === 0) {
       rows = [];
     } else {
@@ -2221,7 +2223,7 @@ async function loadExpenseList() {
   }
   const total = rows.reduce((s, r) => s + Number(r.quantity) * Number(r.unit_price), 0);
   document.getElementById('expense-list-summary').textContent = expenseListMode === 'recent'
-    ? `${rows.length} รายการที่เพิ่มล่าสุด (ไม่ว่าจะลงวันที่ไว้เป็นวันไหนก็ตาม) · ยอดรวม ${money(total)}`
+    ? `${rows.length} รายการ จากใบเสร็จ ${recentExpenseCount} ใบล่าสุด (ไม่ว่าจะลงวันที่ไว้เป็นวันไหนก็ตาม) · ยอดรวม ${money(total)}`
     : `พบ ${rows.length} รายการ · ยอดรวม ${money(total)}`;
 
   if (rows.length === 0) {
