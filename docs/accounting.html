@@ -712,7 +712,7 @@ document.getElementById('receipt-photo-input').addEventListener('change', async 
       return;
     }
 
-    if (data.vendor_guess) document.getElementById('exp-vendor').value = data.vendor_guess;
+    if (data.vendor_guess) document.getElementById('exp-vendor').value = normalizeVendorGuess(data.vendor_guess);
     if (data.expense_date) document.getElementById('exp-date').value = data.expense_date;
 
     if (!data.items || data.items.length === 0) {
@@ -2531,6 +2531,32 @@ function populateItemNameDatalist() {
 function populateVendorDatalist() {
   document.getElementById('vendor-name-list').innerHTML =
     vendorHistory.map(v => `<option value="${v.replace(/"/g, '&quot;')}">`).join('');
+}
+
+// known name variants OCR tends to produce for the same real vendor — some (like CP Axtra =
+// Makro's new parent-company branding) aren't text-similar at all, so a generic fuzzy match
+// against vendor history can't catch them; these need to be spelled out explicitly
+const VENDOR_ALIASES = [
+  { pattern: /tops/i, canonical: 'Tops' },
+  { pattern: /บางแสนเบเกอรี่/i, canonical: 'หจก.บางแสนเบเกอรี่' },
+  { pattern: /cp\s*all|7-?\s*eleven/i, canonical: '7-Eleven' },
+  { pattern: /cp\s*axtra|makro/i, canonical: 'Makro' },
+  { pattern: /mr\.?\s*d\.?\s*i\.?\s*y\.?/i, canonical: 'MR. D.I.Y.' },
+];
+
+// OCR reads the receipt text verbatim with no idea what vendor names already exist in our own
+// data — normalize known aliases first, then fall back to matching against vendor history
+// (e.g. a name that's a substring of, or contains, one we've already recorded) so OCR stops
+// silently creating new near-duplicate vendor names every time
+function normalizeVendorGuess(raw) {
+  if (!raw) return raw;
+  const trimmed = raw.trim();
+  for (const alias of VENDOR_ALIASES) {
+    if (alias.pattern.test(trimmed)) return alias.canonical;
+  }
+  const historyMatch = vendorHistory.find(v =>
+    trimmed.toLowerCase().includes(v.toLowerCase()) || v.toLowerCase().includes(trimmed.toLowerCase()));
+  return historyMatch || trimmed;
 }
 
 async function loadProducts() {
