@@ -131,11 +131,12 @@
   <!-- TAB: รายการรายจ่าย -->
   <div id="tab-expense-list" class="tab-panel" style="display:none;">
     <div class="card">
-      <div style="display:flex; gap:8px; margin-bottom:10px;">
-        <button id="preset-today-btn" type="button" style="flex:1;">วันนี้</button>
-        <button id="preset-month-btn" type="button" style="flex:1;">เดือนนี้</button>
-        <button id="preset-last-month-btn" type="button" style="flex:1;">เดือนที่แล้ว</button>
-        <button id="toggle-expense-filter-btn" type="button" style="flex:1;">ตัวกรอง</button>
+      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
+        <button id="preset-today-btn" type="button" style="flex:1; min-width:100px;">วันนี้</button>
+        <button id="preset-month-btn" type="button" style="flex:1; min-width:100px;">เดือนนี้</button>
+        <button id="preset-last-month-btn" type="button" style="flex:1; min-width:100px;">เดือนที่แล้ว</button>
+        <button id="preset-recent-btn" type="button" style="flex:1; min-width:100px;">เพิ่มล่าสุด</button>
+        <button id="toggle-expense-filter-btn" type="button" style="flex:1; min-width:100px;">ตัวกรอง</button>
       </div>
       <div id="expense-filter-form" style="display:none; margin-bottom:12px;">
         <div class="row">
@@ -2120,25 +2121,38 @@ function setExpenseListRangeToLastMonth() {
   document.getElementById('filter-date-to').value = lastDayOfMonthStr(lastMonthDate);
 }
 
+let expenseListMode = 'date'; // 'date' = normal date-range filtered view, 'recent' = last N items by created_at
+
 document.getElementById('toggle-expense-filter-btn').addEventListener('click', () => {
   const form = document.getElementById('expense-filter-form');
   form.style.display = form.style.display === 'none' ? 'block' : 'none';
 });
 document.getElementById('preset-today-btn').addEventListener('click', () => {
+  expenseListMode = 'date';
   document.getElementById('filter-date-from').value = todayStr();
   document.getElementById('filter-date-to').value = todayStr();
   loadExpenseList();
 });
 document.getElementById('preset-month-btn').addEventListener('click', () => {
+  expenseListMode = 'date';
   setExpenseListRangeToThisMonth();
   loadExpenseList();
 });
 document.getElementById('preset-last-month-btn').addEventListener('click', () => {
+  expenseListMode = 'date';
   setExpenseListRangeToLastMonth();
   loadExpenseList();
 });
-document.getElementById('apply-filter-btn').addEventListener('click', loadExpenseList);
+document.getElementById('preset-recent-btn').addEventListener('click', () => {
+  expenseListMode = 'recent';
+  loadExpenseList();
+});
+document.getElementById('apply-filter-btn').addEventListener('click', () => {
+  expenseListMode = 'date';
+  loadExpenseList();
+});
 document.getElementById('clear-filter-btn').addEventListener('click', () => {
+  expenseListMode = 'date';
   setExpenseListRangeToThisMonth();
   document.getElementById('filter-category').value = '';
   document.getElementById('filter-account').value = '';
@@ -2151,25 +2165,64 @@ async function loadExpenseList() {
   const categoryId = document.getElementById('filter-category').value;
   const accountId = document.getElementById('filter-account').value;
 
-  let query = sbClient.from('expense_items')
-    .select('id, item_name, product_id, quantity, unit_price, category_id, expense_id, expenses!inner(expense_date, vendor, payment_account_id, receipt_photo_path, note)')
-    .order('expense_date', { foreignTable: 'expenses', ascending: false });
-
-  if (from) query = query.gte('expenses.expense_date', from);
-  if (to) query = query.lte('expenses.expense_date', to);
-  if (categoryId) query = query.eq('category_id', categoryId);
-  if (accountId) query = query.eq('expenses.payment_account_id', accountId);
-
   const container = document.getElementById('expense-list-container');
-  const { data, error } = await query;
-  if (error) {
-    container.innerHTML = `<div class="banner err">โหลดข้อมูลไม่สำเร็จ: ${error.message}</div>`;
-    return;
-  }
+  let rows;
 
-  const rows = data || [];
+  if (expenseListMode === 'recent') {
+    // PostgREST's order(col, {foreignTable}) only orders rows WITHIN a nested/embedded
+    // resource — it does not sort the outer table by a many-to-one parent's column, so
+    // ordering expense_items by expenses.created_at that way silently returns arbitrary
+    // order (harmless in "date" mode below because the client re-sorts by date afterward
+    // anyway, but fatal here since preserving created_at order is the whole point).
+    // Fetch the most recently created EXPENSES first (a genuine top-level order), then
+    // their items, and re-attach.
+    let expQuery = sbClient.from('expenses')
+      .select('id, expense_date, vendor, payment_account_id, receipt_photo_path, note, created_at')
+      .order('created_at', { ascending: false }).limit(20);
+    if (accountId) expQuery = expQuery.eq('payment_account_id', accountId);
+    const { data: recentExpenses, error: expErr } = await expQuery;
+    if (expErr) {
+      container.innerHTML = `<div class="banner err">โหลดข้อมูลไม่สำเร็จ: ${expErr.message}</div>`;
+      return;
+    }
+    const expenseById = {};
+    (recentExpenses || []).forEach(e => { expenseById[e.id] = e; });
+    const expenseIds = (recentExpenses || []).map(e => e.id);
+    if (expenseIds.length === 0) {
+      rows = [];
+    } else {
+      let itemQuery = sbClient.from('expense_items')
+        .select('id, item_name, product_id, quantity, unit_price, category_id, expense_id')
+        .in('expense_id', expenseIds);
+      if (categoryId) itemQuery = itemQuery.eq('category_id', categoryId);
+      const { data: items, error: itemErr } = await itemQuery;
+      if (itemErr) {
+        container.innerHTML = `<div class="banner err">โหลดข้อมูลไม่สำเร็จ: ${itemErr.message}</div>`;
+        return;
+      }
+      rows = (items || [])
+        .map(it => ({ ...it, expenses: expenseById[it.expense_id] }))
+        .sort((a, b) => new Date(b.expenses.created_at) - new Date(a.expenses.created_at));
+    }
+  } else {
+    let query = sbClient.from('expense_items')
+      .select('id, item_name, product_id, quantity, unit_price, category_id, expense_id, expenses!inner(expense_date, vendor, payment_account_id, receipt_photo_path, note, created_at)')
+      .order('expense_date', { foreignTable: 'expenses', ascending: false });
+    if (from) query = query.gte('expenses.expense_date', from);
+    if (to) query = query.lte('expenses.expense_date', to);
+    if (categoryId) query = query.eq('category_id', categoryId);
+    if (accountId) query = query.eq('expenses.payment_account_id', accountId);
+    const { data, error } = await query;
+    if (error) {
+      container.innerHTML = `<div class="banner err">โหลดข้อมูลไม่สำเร็จ: ${error.message}</div>`;
+      return;
+    }
+    rows = data || [];
+  }
   const total = rows.reduce((s, r) => s + Number(r.quantity) * Number(r.unit_price), 0);
-  document.getElementById('expense-list-summary').textContent = `พบ ${rows.length} รายการ · ยอดรวม ${money(total)}`;
+  document.getElementById('expense-list-summary').textContent = expenseListMode === 'recent'
+    ? `${rows.length} รายการที่เพิ่มล่าสุด (ไม่ว่าจะลงวันที่ไว้เป็นวันไหนก็ตาม) · ยอดรวม ${money(total)}`
+    : `พบ ${rows.length} รายการ · ยอดรวม ${money(total)}`;
 
   if (rows.length === 0) {
     container.innerHTML = `<p class="muted" style="text-align:center; padding:1.5rem 0;">ไม่พบรายการในช่วงที่เลือก</p>`;
@@ -2192,15 +2245,19 @@ async function loadExpenseList() {
     (photosByExpense[p.expense_id] = photosByExpense[p.expense_id] || []).push({ path: p.photo_path, source: 'receipt', receiptId: p.id });
   });
 
-  const byDate = {};
+  // group into date-header sections normally; in "recent" mode, group by receipt instead and
+  // keep the fetch order (created_at desc) rather than re-sorting groups by expense_date —
+  // that's the whole point of this mode when the date itself might be the mistake
+  const byGroup = {};
   rows.forEach(r => {
-    const d = r.expenses.expense_date;
-    (byDate[d] = byDate[d] || []).push(r);
+    const key = expenseListMode === 'recent' ? r.expense_id : r.expenses.expense_date;
+    (byGroup[key] = byGroup[key] || []).push(r);
   });
+  const groupKeys = expenseListMode === 'recent' ? Object.keys(byGroup) : Object.keys(byGroup).sort().reverse();
 
-  container.innerHTML = Object.keys(byDate).sort().reverse().map(date => `
-    <div class="date-header">${thaiDateStr(date)}</div>
-    ${byDate[date].map(r => {
+  container.innerHTML = groupKeys.map(key => `
+    <div class="date-header">${thaiDateStr(byGroup[key][0].expenses.expense_date)}</div>
+    ${byGroup[key].map(r => {
       const cat = expenseCategories.find(c => c.id === r.category_id);
       const acct = paymentAccounts.find(a => a.id === r.expenses.payment_account_id);
       const product = r.product_id ? productsList.find(p => p.id === r.product_id) : null;
