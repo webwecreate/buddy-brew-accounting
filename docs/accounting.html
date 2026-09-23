@@ -2178,7 +2178,7 @@ async function loadExpenseList() {
     // their items, and re-attach.
     let expQuery = sbClient.from('expenses')
       .select('id, expense_date, vendor, payment_account_id, receipt_photo_path, note, created_at')
-      .order('created_at', { ascending: false }).limit(20);
+      .order('created_at', { ascending: false }).limit(10);
     if (accountId) expQuery = expQuery.eq('payment_account_id', accountId);
     const { data: recentExpenses, error: expErr } = await expQuery;
     if (expErr) {
