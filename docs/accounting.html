@@ -326,6 +326,7 @@
           <div class="field"><label>วันที่ซื้อ</label><input id="asset-date" type="date"></div>
         </div>
         <div class="field"><label>อายุใช้งาน (เดือน)</label><input id="asset-life" type="number" min="1" value="24"></div>
+        <div class="field"><label>ซื้อจากร้าน/ผู้ขาย (ถ้ามี)</label><input id="asset-vendor" type="text" placeholder="เช่น Makro" list="vendor-name-list"></div>
         <div class="field">
           <label>จ่ายจากบัญชี (ถ้ามี — เว้นว่างได้ถ้าไม่ได้จ่ายผ่านบัญชีร้าน เช่น เจ้าของจ่ายตรงให้ผู้ขาย)</label>
           <select id="asset-payment-account"><option value="">— ไม่ระบุ —</option></select>
@@ -336,12 +337,15 @@
           <input id="asset-photo-input" type="file" accept="image/*" multiple>
           <div id="asset-photo-status" class="muted" style="margin-top:4px;"></div>
         </div>
-        <button id="save-asset-btn" class="primary" style="width:100%;">บันทึก</button>
+        <div class="row">
+          <button id="save-asset-btn" class="primary" style="flex:1;">บันทึก</button>
+          <button id="cancel-asset-edit-btn" type="button" style="display:none; flex:0 0 auto;">ยกเลิก</button>
+        </div>
         <div id="asset-save-banner" style="display:none; margin-top:10px;"></div>
       </div>
       <div class="table-scroll">
         <table>
-          <thead><tr><th>ชื่อ</th><th>หมวด</th><th>ราคาซื้อ</th><th>จ่ายจากบัญชี</th><th>ค่าเสื่อมสะสม</th><th>คงเหลือ</th><th>สถานะ</th><th></th></tr></thead>
+          <thead><tr><th>ชื่อ</th><th>หมวด</th><th>ราคาซื้อ</th><th>ผู้ขาย</th><th>จ่ายจากบัญชี</th><th>ค่าเสื่อมสะสม</th><th>คงเหลือ</th><th>สถานะ</th><th></th></tr></thead>
           <tbody id="asset-list-tbody"></tbody>
         </table>
       </div>
@@ -376,7 +380,10 @@
           <div class="field"><label>วันที่เริ่ม</label><input id="liab-start-date" type="date"></div>
         </div>
         <div class="field"><label>โน้ต (ถ้ามี)</label><textarea id="liab-note" rows="2"></textarea></div>
-        <button id="save-liability-btn" class="primary" style="width:100%;">บันทึก</button>
+        <div class="row">
+          <button id="save-liability-btn" class="primary" style="flex:1;">บันทึก</button>
+          <button id="cancel-liability-edit-btn" type="button" style="display:none; flex:0 0 auto;">ยกเลิก</button>
+        </div>
         <div id="liability-save-banner" style="display:none; margin-top:10px;"></div>
       </div>
       <div class="table-scroll">
@@ -441,6 +448,16 @@
   <div style="position:sticky; bottom:0; display:flex; gap:10px; max-width:480px; margin:16px auto 0; background:var(--surface-2); padding:10px; border-radius:12px;">
     <button id="photo-preview-cancel-btn" type="button" style="flex:1;">ยกเลิก</button>
     <button id="photo-preview-confirm-btn" class="primary" type="button" style="flex:1;">ยืนยัน</button>
+  </div>
+</div>
+
+<!-- shared modal: view already-uploaded photo(s) full-size, stacked so multiple photos on one
+     receipt can all be scrolled through in place — replaces opening each as a separate browser
+     tab, which mobile browsers block after the first (only saw photo 1 of N) -->
+<div id="photo-view-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:1000; padding:16px; overflow-y:auto;">
+  <div id="photo-view-images" style="display:flex; flex-direction:column; gap:12px; align-items:center; max-width:480px; margin:0 auto;"></div>
+  <div style="position:sticky; bottom:0; display:flex; gap:10px; max-width:480px; margin:16px auto 0; background:var(--surface-2); padding:10px; border-radius:12px;">
+    <button id="photo-view-close-btn" type="button" style="flex:1;">ปิด</button>
   </div>
 </div>
 
@@ -712,6 +729,25 @@ function previewPhotosBeforeConfirm(files) {
       cleanup();
       resolve(null);
     };
+  });
+}
+
+// shows one or more already-uploaded photos (by storage path) full-size, stacked in a scrollable
+// modal — used instead of window.open per photo since opening several new tabs at once from a
+// single click gets blocked by mobile browsers after the first
+async function viewPhotosInModal(paths) {
+  const modal = document.getElementById('photo-view-modal');
+  const imagesContainer = document.getElementById('photo-view-images');
+  const closeBtn = document.getElementById('photo-view-close-btn');
+  imagesContainer.innerHTML = '<p class="muted" style="color:#fff;">กำลังโหลด...</p>';
+  modal.style.display = 'block';
+  const results = await Promise.all(paths.map(p => sbClient.storage.from('receipts').createSignedUrl(p, 60)));
+  const urls = results.filter(r => !r.error && r.data).map(r => r.data.signedUrl);
+  imagesContainer.innerHTML = urls.length === 0
+    ? '<p class="muted" style="color:#fff;">เปิดรูปไม่สำเร็จ</p>'
+    : urls.map(u => `<img src="${u}" style="width:100%; border-radius:8px; display:block;">`).join('');
+  return new Promise((resolve) => {
+    closeBtn.onclick = () => { modal.style.display = 'none'; closeBtn.onclick = null; resolve(); };
   });
 }
 
@@ -1656,11 +1692,23 @@ function assetDepreciation(asset, asOfDate = new Date()) {
 
 document.getElementById('toggle-asset-form-btn').addEventListener('click', () => {
   const form = document.getElementById('asset-form');
-  form.style.display = form.style.display === 'none' ? 'block' : 'none';
+  const opening = form.style.display === 'none';
+  if (opening) resetAssetForm();
+  form.style.display = opening ? 'block' : 'none';
+});
+document.getElementById('cancel-asset-edit-btn').addEventListener('click', () => {
+  resetAssetForm();
+  document.getElementById('asset-form').style.display = 'none';
 });
 document.getElementById('toggle-liability-form-btn').addEventListener('click', () => {
   const form = document.getElementById('liability-form');
-  form.style.display = form.style.display === 'none' ? 'block' : 'none';
+  const opening = form.style.display === 'none';
+  if (opening) resetLiabilityForm();
+  form.style.display = opening ? 'block' : 'none';
+});
+document.getElementById('cancel-liability-edit-btn').addEventListener('click', () => {
+  resetLiabilityForm();
+  document.getElementById('liability-form').style.display = 'none';
 });
 
 async function loadAssetsLiabilities() {
@@ -1686,16 +1734,19 @@ function renderAssetList() {
         <td>${a.name}</td>
         <td>${assetCategoryLabel[a.category] || a.category}</td>
         <td>${money(a.purchase_price)}</td>
+        <td>${a.vendor || '—'}</td>
         <td>${acct ? acct.label_th : '—'}</td>
         <td>${money(accumulated)}</td>
         <td>${money(bookValue)}</td>
         <td>${a.status === 'disposed' ? 'เลิกใช้' : 'ใช้งาน'}</td>
         <td style="white-space:nowrap;">
           <button data-id="${a.id}" class="view-asset-photos-btn" type="button">ดูรูป</button>
+          <button data-id="${a.id}" class="edit-asset-btn" type="button">แก้ไข</button>
           ${a.status === 'active' ? `<button data-id="${a.id}" class="dispose-asset-btn" type="button">ปิดใช้งาน</button>` : ''}
+          <button data-id="${a.id}" class="delete-asset-btn" type="button">ลบ</button>
         </td>
       </tr>
-      <tr id="asset-photos-row-${a.id}" style="display:none;"><td colspan="8"></td></tr>
+      <tr id="asset-photos-row-${a.id}" style="display:none;"><td colspan="9"></td></tr>
     `;
   }).join('');
   tbody.querySelectorAll('.dispose-asset-btn').forEach(btn => {
@@ -1707,6 +1758,55 @@ function renderAssetList() {
   tbody.querySelectorAll('.view-asset-photos-btn').forEach(btn => {
     btn.addEventListener('click', () => toggleAssetPhotos(btn.dataset.id));
   });
+  tbody.querySelectorAll('.edit-asset-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const asset = assetsList.find(a => a.id === btn.dataset.id);
+      if (asset) startEditAsset(asset);
+    });
+  });
+  tbody.querySelectorAll('.delete-asset-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('ลบทรัพย์สินนี้ถาวร (รวมรูปที่แนบไว้)? การลบไม่สามารถย้อนกลับได้')) return;
+      btn.disabled = true;
+      await sbClient.from('assets').delete().eq('id', btn.dataset.id);
+      loadAssetsLiabilities();
+    });
+  });
+}
+
+let editingAssetId = null;
+
+function resetAssetForm() {
+  editingAssetId = null;
+  document.getElementById('asset-name').value = '';
+  document.getElementById('asset-category').value = 'equipment';
+  document.getElementById('asset-price').value = '';
+  document.getElementById('asset-date').value = '';
+  document.getElementById('asset-life').value = '24';
+  document.getElementById('asset-vendor').value = '';
+  document.getElementById('asset-payment-account').value = '';
+  document.getElementById('asset-note').value = '';
+  document.getElementById('asset-photo-input').value = '';
+  document.getElementById('asset-photo-status').textContent = '';
+  assetPhotoBlobs = [];
+  document.getElementById('save-asset-btn').textContent = 'บันทึก';
+  document.getElementById('cancel-asset-edit-btn').style.display = 'none';
+}
+
+function startEditAsset(asset) {
+  editingAssetId = asset.id;
+  document.getElementById('asset-name').value = asset.name;
+  document.getElementById('asset-category').value = asset.category;
+  document.getElementById('asset-price').value = asset.purchase_price;
+  document.getElementById('asset-date').value = asset.purchase_date;
+  document.getElementById('asset-life').value = asset.useful_life_months;
+  document.getElementById('asset-vendor').value = asset.vendor || '';
+  document.getElementById('asset-payment-account').value = asset.payment_account_id || '';
+  document.getElementById('asset-note').value = asset.note || '';
+  document.getElementById('save-asset-btn').textContent = 'บันทึกการแก้ไข';
+  document.getElementById('cancel-asset-edit-btn').style.display = 'inline-block';
+  document.getElementById('asset-form').style.display = 'block';
+  document.getElementById('asset-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 async function toggleAssetPhotos(assetId) {
@@ -1822,6 +1922,8 @@ function renderLiabilityList() {
         <td style="white-space:nowrap;">
           <button data-id="${l.id}" class="view-liability-payments-btn" type="button">ดูรายการจ่าย</button>
           ${l.status === 'open' ? `<button data-id="${l.id}" class="record-payment-btn" type="button">+ บันทึกจ่าย</button>` : ''}
+          <button data-id="${l.id}" class="edit-liability-btn" type="button">แก้ไข</button>
+          <button data-id="${l.id}" class="delete-liability-btn" type="button">ลบ</button>
         </td>
       </tr>
       <tr id="payment-row-${l.id}" style="display:none;"><td colspan="6">
@@ -1854,6 +1956,25 @@ function renderLiabilityList() {
   });
   tbody.querySelectorAll('.view-liability-payments-btn').forEach(btn => {
     btn.addEventListener('click', () => toggleLiabilityPayments(btn.dataset.id));
+  });
+  tbody.querySelectorAll('.edit-liability-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const liab = liabilitiesList.find(l => l.id === btn.dataset.id);
+      if (liab) startEditLiability(liab);
+    });
+  });
+  tbody.querySelectorAll('.delete-liability-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const liab = liabilitiesList.find(l => l.id === btn.dataset.id);
+      const hasPayments = liab && Number(liab.paid_amount) > 0;
+      const msg = hasPayments
+        ? `หนี้รายการนี้มีประวัติจ่ายแล้ว ${money(liab.paid_amount)} บาท การลบจะลบประวัติจ่ายทั้งหมดไปด้วย (ย้อนกลับไม่ได้) ต้องการลบจริงหรือไม่?`
+        : 'ลบหนี้สินรายการนี้ถาวร? การลบไม่สามารถย้อนกลับได้';
+      if (!confirm(msg)) return;
+      btn.disabled = true;
+      await sbClient.from('liabilities').delete().eq('id', btn.dataset.id);
+      loadAssetsLiabilities();
+    });
   });
 
   let liabilityPaymentPhotoBlobs = {}; // liability id -> blobs, reset per row via the input's own change handler
@@ -1905,6 +2026,34 @@ function renderLiabilityList() {
       loadAssetsLiabilities();
     });
   });
+}
+
+let editingLiabilityId = null;
+
+function resetLiabilityForm() {
+  editingLiabilityId = null;
+  document.getElementById('liab-creditor-type').value = 'vendor';
+  document.getElementById('liab-creditor-name').value = '';
+  document.getElementById('liab-asset-link').value = '';
+  document.getElementById('liab-amount').value = '';
+  document.getElementById('liab-start-date').value = '';
+  document.getElementById('liab-note').value = '';
+  document.getElementById('save-liability-btn').textContent = 'บันทึก';
+  document.getElementById('cancel-liability-edit-btn').style.display = 'none';
+}
+
+function startEditLiability(liability) {
+  editingLiabilityId = liability.id;
+  document.getElementById('liab-creditor-type').value = liability.creditor_type;
+  document.getElementById('liab-creditor-name').value = liability.creditor_name;
+  document.getElementById('liab-asset-link').value = liability.asset_id || '';
+  document.getElementById('liab-amount').value = liability.original_amount;
+  document.getElementById('liab-start-date').value = liability.start_date;
+  document.getElementById('liab-note').value = liability.note || '';
+  document.getElementById('save-liability-btn').textContent = 'บันทึกการแก้ไข';
+  document.getElementById('cancel-liability-edit-btn').style.display = 'inline-block';
+  document.getElementById('liability-form').style.display = 'block';
+  document.getElementById('liability-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 async function toggleLiabilityPayments(liabilityId) {
@@ -2086,29 +2235,41 @@ document.getElementById('save-asset-btn').addEventListener('click', async () => 
     banner.style.display = 'block';
     return;
   }
+  const payload = {
+    name,
+    category: document.getElementById('asset-category').value,
+    purchase_price: price,
+    purchase_date: date,
+    useful_life_months: Number(document.getElementById('asset-life').value) || 24,
+    vendor: document.getElementById('asset-vendor').value.trim() || null,
+    payment_account_id: document.getElementById('asset-payment-account').value || null,
+    note: document.getElementById('asset-note').value || null,
+  };
+  const wasEditing = !!editingAssetId;
   try {
-    const { data: assetRow, error } = await sbClient.from('assets').insert({
-      name,
-      category: document.getElementById('asset-category').value,
-      purchase_price: price,
-      purchase_date: date,
-      useful_life_months: Number(document.getElementById('asset-life').value) || 24,
-      payment_account_id: document.getElementById('asset-payment-account').value || null,
-      note: document.getElementById('asset-note').value || null,
-      created_by: currentSession.user.id,
-    }).select('id').single();
-    if (error) throw error;
+    let assetId = editingAssetId;
+    if (wasEditing) {
+      const { error } = await sbClient.from('assets').update(payload).eq('id', editingAssetId);
+      if (error) throw error;
+    } else {
+      const { data: assetRow, error } = await sbClient.from('assets').insert({
+        ...payload,
+        created_by: currentSession.user.id,
+      }).select('id').single();
+      if (error) throw error;
+      assetId = assetRow.id;
+    }
 
     if (assetPhotoBlobs.length > 0) {
       const uploadedPaths = [];
       for (let i = 0; i < assetPhotoBlobs.length; i++) {
-        const path = `assets/${assetRow.id}-${Date.now()}-${i}.jpg`;
+        const path = `assets/${assetId}-${Date.now()}-${i}.jpg`;
         const { error: uploadErr } = await sbClient.storage.from('receipts').upload(path, assetPhotoBlobs[i], { contentType: 'image/jpeg' });
         if (!uploadErr) uploadedPaths.push(path);
       }
       if (uploadedPaths.length > 0) {
         await sbClient.from('asset_receipts').insert(
-          uploadedPaths.map(path => ({ asset_id: assetRow.id, photo_path: path, created_by: currentSession.user.id }))
+          uploadedPaths.map(path => ({ asset_id: assetId, photo_path: path, created_by: currentSession.user.id }))
         );
       }
     }
@@ -2116,13 +2277,8 @@ document.getElementById('save-asset-btn').addEventListener('click', async () => 
     banner.className = 'banner ok';
     banner.textContent = 'บันทึกแล้ว ✓';
     banner.style.display = 'block';
-    document.getElementById('asset-name').value = '';
-    document.getElementById('asset-price').value = '';
-    document.getElementById('asset-payment-account').value = '';
-    document.getElementById('asset-note').value = '';
-    document.getElementById('asset-photo-input').value = '';
-    document.getElementById('asset-photo-status').textContent = '';
-    assetPhotoBlobs = [];
+    resetAssetForm();
+    if (wasEditing) document.getElementById('asset-form').style.display = 'none';
     loadAssetsLiabilities();
   } catch (err) {
     console.error(err);
@@ -2143,23 +2299,25 @@ document.getElementById('save-liability-btn').addEventListener('click', async ()
     banner.style.display = 'block';
     return;
   }
+  const payload = {
+    creditor_type: document.getElementById('liab-creditor-type').value,
+    creditor_name: creditorName,
+    asset_id: document.getElementById('liab-asset-link').value || null,
+    original_amount: amount,
+    start_date: startDate,
+    note: document.getElementById('liab-note').value || null,
+  };
+  const wasEditing = !!editingLiabilityId;
   try {
-    const { error } = await sbClient.from('liabilities').insert({
-      creditor_type: document.getElementById('liab-creditor-type').value,
-      creditor_name: creditorName,
-      asset_id: document.getElementById('liab-asset-link').value || null,
-      original_amount: amount,
-      start_date: startDate,
-      note: document.getElementById('liab-note').value || null,
-      created_by: currentSession.user.id,
-    });
+    const { error } = wasEditing
+      ? await sbClient.from('liabilities').update(payload).eq('id', editingLiabilityId)
+      : await sbClient.from('liabilities').insert({ ...payload, created_by: currentSession.user.id });
     if (error) throw error;
     banner.className = 'banner ok';
     banner.textContent = 'บันทึกแล้ว ✓';
     banner.style.display = 'block';
-    document.getElementById('liab-creditor-name').value = '';
-    document.getElementById('liab-amount').value = '';
-    document.getElementById('liab-note').value = '';
+    resetLiabilityForm();
+    if (wasEditing) document.getElementById('liability-form').style.display = 'none';
     loadAssetsLiabilities();
   } catch (err) {
     console.error(err);
@@ -2313,9 +2471,13 @@ async function loadExpenseList() {
   const expenseIds = [...new Set(rows.map(r => r.expense_id))];
   const { data: extraPhotos } = await sbClient.from('expense_receipts')
     .select('id, expense_id, photo_path').in('expense_id', expenseIds);
+  // rows here is one row per expense_item, so a receipt with 3 items would otherwise push its
+  // one legacy photo 3 times — dedupe per expense_id since the legacy photo is 1-per-receipt, not 1-per-item
   const photosByExpense = {};
+  const seenLegacyPhoto = new Set();
   rows.forEach(r => {
-    if (r.expenses.receipt_photo_path) {
+    if (r.expenses.receipt_photo_path && !seenLegacyPhoto.has(r.expense_id)) {
+      seenLegacyPhoto.add(r.expense_id);
       (photosByExpense[r.expense_id] = photosByExpense[r.expense_id] || []).push({ path: r.expenses.receipt_photo_path, source: 'legacy' });
     }
   });
@@ -2442,20 +2604,10 @@ async function loadExpenseList() {
   container.querySelectorAll('.view-receipt-photo-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       // buttons inside the photo-list section pass a single path; the top-level "ดูรูปสลิป"
-      // button passes expense-id only and opens every photo on that receipt
+      // button passes expense-id only and views every photo on that receipt
       const paths = btn.dataset.path ? [btn.dataset.path] : (photosByExpense[btn.dataset.expenseId] || []).map(p => p.path);
       if (paths.length === 0) return;
-      btn.disabled = true;
-      const originalText = btn.textContent;
-      btn.textContent = 'กำลังโหลด...';
-      const results = await Promise.all(paths.map(p => sbClient.storage.from('receipts').createSignedUrl(p, 60)));
-      btn.disabled = false;
-      btn.textContent = originalText;
-      let opened = 0;
-      results.forEach(({ data, error }) => {
-        if (!error && data) { window.open(data.signedUrl, '_blank'); opened++; }
-      });
-      if (opened === 0) alert('เปิดรูปไม่สำเร็จ');
+      await viewPhotosInModal(paths);
     });
   });
 
