@@ -2819,6 +2819,7 @@ async function loadProducts() {
         <td style="white-space:nowrap;">
           <button data-id="${p.id}" class="view-product-history-btn" type="button">ดูประวัติ</button>
           <button data-id="${p.id}" class="edit-product-btn" type="button">แก้ไข</button>
+          <button data-id="${p.id}" class="delete-product-btn" type="button">ลบ</button>
         </td>
       </tr>
       <tr id="product-history-row-${p.id}" style="display:none;"><td colspan="5"></td></tr>
@@ -2834,6 +2835,19 @@ async function loadProducts() {
 
   document.querySelectorAll('.view-product-history-btn').forEach(btn => {
     btn.addEventListener('click', () => toggleProductHistory(btn.dataset.id));
+  });
+
+  document.querySelectorAll('.delete-product-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      const { count } = await sbClient.from('expense_items').select('id', { count: 'exact', head: true }).eq('product_id', btn.dataset.id);
+      const msg = count > 0
+        ? `สินค้านี้มีรายการรายจ่ายที่ผูกไว้แล้ว ${count} รายการ การลบจะทำให้รายการเหล่านั้น "ไม่ผูกกับสินค้าใด" อีก (ไม่ได้ลบรายการรายจ่ายที่ผูกไว้) ต้องการลบจริงหรือไม่?`
+        : 'ลบสินค้านี้ถาวร? การลบไม่สามารถย้อนกลับได้';
+      if (!confirm(msg)) { btn.disabled = false; return; }
+      await sbClient.from('products').delete().eq('id', btn.dataset.id);
+      loadProducts();
+    });
   });
 
   populateProductLinkSelect();
