@@ -650,6 +650,12 @@ function allocateBillAdjustment(items, adjustment) {
   });
 }
 
+// audit trail appended to the receipt note so the pre-adjustment amounts stay traceable
+function billAdjustmentNote(discount, shipping, subtotalBefore) {
+  if (!discount && !shipping) return '';
+  return `[ส่วนลดท้ายบิล ${money(discount)} / ค่าส่ง ${money(shipping)} — กระจายเข้าราคาต่อหน่วยแล้ว, ยอดสินค้าก่อนปรับ ${money(subtotalBefore)}]`;
+}
+
 function updateItemsTotal() {
   const total = expenseItems.reduce((sum, it) => sum + (Number(it.quantity) || 0) * (Number(it.unit_price) || 0), 0);
   document.getElementById('items-total').textContent = money(total);
@@ -925,9 +931,7 @@ document.getElementById('save-expense-btn').addEventListener('click', async () =
     return;
   }
   const effectiveUnitPrices = allocateBillAdjustment(validItems, billAdjustment);
-  const adjustmentNote = (discount || shipping)
-    ? `[ส่วนลดท้ายบิล ${money(discount)} / ค่าส่ง ${money(shipping)} — กระจายเข้าราคาต่อหน่วยแล้ว, ยอดสินค้าก่อนปรับ ${money(itemsSubtotal)}]`
-    : '';
+  const adjustmentNote = billAdjustmentNote(discount, shipping, itemsSubtotal);
   const noteText = [document.getElementById('exp-note').value.trim(), adjustmentNote].filter(Boolean).join('\n') || null;
 
   const saveBtn = document.getElementById('save-expense-btn');
@@ -2663,6 +2667,14 @@ async function loadExpenseList() {
             </div>
             <button data-expense-id="${r.expense_id}" class="save-receipt-edit-btn primary" type="button" style="font-size:12px; padding:4px 12px;">บันทึก</button>
 
+            <div style="font-weight:500; font-size:13px; margin:14px 0 2px; padding-top:10px; border-top:0.5px solid var(--border);">ส่วนลดท้ายบิล / ค่าส่ง</div>
+            <p class="muted" style="margin:0 0 6px;">ใช้ร่วมกับทุกรายการในใบเสร็จนี้ — ระบบกระจายเข้าราคาต่อหน่วยของทุกรายการตามสัดส่วน โดยปรับจากราคาปัจจุบัน (ถ้าเคยใส่ตอนเพิ่มรายจ่ายแล้ว อย่ากรอกซ้ำ)</p>
+            <div class="row" style="margin-bottom:6px;">
+              <div class="field"><label>ส่วนลดท้ายบิล</label><input type="number" class="edit-bill-discount" min="0" step="0.01" placeholder="โค้ด/คูปอง/Coins"></div>
+              <div class="field"><label>ค่าส่ง</label><input type="number" class="edit-bill-shipping" min="0" step="0.01" placeholder="0"></div>
+            </div>
+            <button data-expense-id="${r.expense_id}" class="apply-bill-adjust-btn primary" type="button" style="font-size:12px; padding:4px 12px;">ปรับเข้ารายการ</button>
+
             <div style="font-weight:500; font-size:13px; margin:14px 0 6px; padding-top:10px; border-top:0.5px solid var(--border);">การผูกกับสินค้า</div>
             <select class="relink-product-select" data-id="${r.id}" style="font-size:13px;">${productOptions}</select>
 
@@ -2777,6 +2789,55 @@ async function loadExpenseList() {
         item_name: name, quantity, unit_price: unitPrice, category_id: categoryId,
       }).eq('id', btn.dataset.id);
       loadExpenseList();
+    });
+  });
+
+  container.querySelectorAll('.apply-bill-adjust-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const panel = btn.closest('.edit-panel-row');
+      const discount = Math.max(0, Number(panel.querySelector('.edit-bill-discount').value) || 0);
+      const shipping = Math.max(0, Number(panel.querySelector('.edit-bill-shipping').value) || 0);
+      if (!discount && !shipping) {
+        alert('กรอกส่วนลดหรือค่าส่งอย่างน้อย 1 ช่อง');
+        return;
+      }
+      btn.disabled = true;
+      try {
+        // fetch every item on the receipt (the list may be filtered by category, so `rows` can be partial)
+        const expenseId = btn.dataset.expenseId;
+        const [itemsRes, expRes] = await Promise.all([
+          sbClient.from('expense_items').select('id, quantity, unit_price').eq('expense_id', expenseId).order('sort_order'),
+          sbClient.from('expenses').select('note').eq('id', expenseId).single(),
+        ]);
+        if (itemsRes.error) throw itemsRes.error;
+        if (expRes.error) throw expRes.error;
+        const items = (itemsRes.data || []).map(it => ({ id: it.id, quantity: Number(it.quantity), unit_price: Number(it.unit_price) }));
+        if (items.length === 0 || items.some(it => !(it.quantity > 0))) {
+          alert('ปรับไม่ได้ เพราะมีรายการที่จำนวนเป็น 0 หรือไม่มีรายการในใบเสร็จนี้');
+          return;
+        }
+        const subtotal = items.reduce((s, it) => s + it.quantity * it.unit_price, 0);
+        const adjustment = shipping - discount;
+        if (round2(subtotal + adjustment) <= 0) {
+          alert('ส่วนลดมากกว่ายอดสินค้า ตรวจสอบตัวเลขอีกครั้ง');
+          return;
+        }
+        if (!confirm(`ยอดรวมใบเสร็จตอนนี้ ${money(subtotal)} → หลังปรับ ${money(subtotal + adjustment)}\n(ส่วนลด ${money(discount)}, ค่าส่ง ${money(shipping)}) กระจายเข้า ${items.length} รายการ\nยืนยัน?`)) return;
+
+        const newPrices = allocateBillAdjustment(items, adjustment);
+        const results = await Promise.all(items.map((it, i) =>
+          sbClient.from('expense_items').update({ unit_price: newPrices[i] }).eq('id', it.id)));
+        const failed = results.find(r => r.error);
+        if (failed) throw failed.error;
+        const note = [(expRes.data.note || '').trim(), billAdjustmentNote(discount, shipping, subtotal)].filter(Boolean).join('\n');
+        await sbClient.from('expenses').update({ note }).eq('id', expenseId);
+      } catch (err) {
+        console.error(err);
+        alert('ปรับไม่สำเร็จ: ' + (err.message || String(err)) + '\nบางรายการอาจถูกปรับไปแล้ว ตรวจสอบยอดในรายการก่อนลองใหม่');
+      } finally {
+        btn.disabled = false;
+        loadExpenseList();
+      }
     });
   });
 
