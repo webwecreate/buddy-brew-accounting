@@ -50,6 +50,7 @@
   .expense-item-card .top-line { display:flex; justify-content:space-between; align-items:center; gap:8px; }
   .expense-item-card .cat-badge { font-size:11px; color:var(--text-secondary); background:var(--surface-1); border-radius:999px; padding:2px 8px; white-space:nowrap; }
   .expense-item-card .sub-line { font-size:12px; color:var(--text-secondary); margin-top:4px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+input[type="file"] { scroll-margin-top: 90px; }
 </style>
 </head>
 <body>
@@ -643,6 +644,16 @@ function resetExpenseForm() {
   document.getElementById('exp-note').value = '';
   document.getElementById('exp-date').value = todayStr();
 }
+
+// iOS opens the file-source menu (Photo Library / Take Photo / Choose File / Drive) upward when the
+// input sits low on screen, which reverses the item order vs the top-of-page OCR input. Scrolling the
+// tapped input to the upper part of the screen first makes the menu open downward, same order everywhere.
+document.addEventListener('click', (e) => {
+  const input = e.target;
+  if (input.matches && input.matches('input[type="file"][accept="image/*"]') && input.id !== 'receipt-photo-input') {
+    input.scrollIntoView({ block: 'start', behavior: 'instant' });
+  }
+}, true);
 
 document.getElementById('evidence-photo-input').addEventListener('change', async (e) => {
   const rawFiles = Array.from(e.target.files || []);
