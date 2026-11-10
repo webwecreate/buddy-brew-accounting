@@ -333,9 +333,10 @@
         </div>
         <div class="field"><label>โน้ต (ถ้ามี)</label><textarea id="asset-note" rows="2"></textarea></div>
         <div class="field">
-          <label>แนบรูปสลิป/ใบเสร็จ (หลักฐาน, ถ้ามี — เลือกได้หลายรูป)</label>
+          <label>แนบรูปสลิป/เอกสาร (หลักฐาน, ถ้ามี — เลือกได้หลายรูป)</label>
           <input id="asset-photo-input" type="file" accept="image/*" multiple>
           <div id="asset-photo-status" class="muted" style="margin-top:4px;"></div>
+          <button id="clear-asset-photos-btn" type="button" style="display:none; margin-top:6px; font-size:12px; padding:3px 10px;">ล้างรูปที่แนบ</button>
         </div>
         <div class="row">
           <button id="save-asset-btn" class="primary" style="flex:1;">บันทึก</button>
@@ -1788,6 +1789,7 @@ function resetAssetForm() {
   document.getElementById('asset-note').value = '';
   document.getElementById('asset-photo-input').value = '';
   document.getElementById('asset-photo-status').textContent = '';
+  document.getElementById('clear-asset-photos-btn').style.display = 'none';
   assetPhotoBlobs = [];
   document.getElementById('save-asset-btn').textContent = 'บันทึก';
   document.getElementById('cancel-asset-edit-btn').style.display = 'none';
@@ -1939,9 +1941,10 @@ function renderLiabilityList() {
           <button data-id="${l.id}" class="save-payment-btn primary" type="button" style="flex:0 0 auto; height:38px;">บันทึก</button>
         </div>
         <div class="field" style="margin-top:6px;">
-          <label>แนบรูปสลิป (หลักฐาน, ถ้ามี — เลือกได้หลายรูป)</label>
+          <label>แนบรูปสลิป/เอกสาร (หลักฐาน, ถ้ามี — เลือกได้หลายรูป)</label>
           <input id="payment-photo-input-${l.id}" type="file" accept="image/*" multiple>
           <div id="payment-photo-status-${l.id}" class="muted" style="margin-top:4px;"></div>
+          <button id="clear-payment-photos-btn-${l.id}" type="button" style="display:none; margin-top:6px; font-size:12px; padding:3px 10px;">ล้างรูปที่แนบ</button>
         </div>
       </td></tr>
       <tr id="liability-payments-row-${l.id}" style="display:none;"><td colspan="6"></td></tr>
@@ -1990,10 +1993,18 @@ function renderLiabilityList() {
       try {
         liabilityPaymentPhotoBlobs[liabId] = await Promise.all(files.map(f => downscaleImage(f)));
         status.textContent = `แนบแล้ว ${liabilityPaymentPhotoBlobs[liabId].length} รูป ✓`;
+        document.getElementById('clear-payment-photos-btn-' + liabId).style.display = 'inline-block';
       } catch (err) {
         console.error(err);
         status.textContent = 'แนบรูปไม่สำเร็จ ลองใหม่อีกครั้ง';
       }
+    });
+    const liabId = input.id.replace('payment-photo-input-', '');
+    document.getElementById('clear-payment-photos-btn-' + liabId).addEventListener('click', (e) => {
+      delete liabilityPaymentPhotoBlobs[liabId];
+      input.value = '';
+      document.getElementById('payment-photo-status-' + liabId).textContent = '';
+      e.currentTarget.style.display = 'none';
     });
   });
 
@@ -2218,10 +2229,18 @@ document.getElementById('asset-photo-input').addEventListener('change', async (e
   try {
     assetPhotoBlobs = await Promise.all(files.map(f => downscaleImage(f)));
     status.textContent = `แนบแล้ว ${assetPhotoBlobs.length} รูป ✓`;
+    document.getElementById('clear-asset-photos-btn').style.display = 'inline-block';
   } catch (err) {
     console.error(err);
     status.textContent = 'แนบรูปไม่สำเร็จ ลองใหม่อีกครั้ง';
   }
+});
+
+document.getElementById('clear-asset-photos-btn').addEventListener('click', () => {
+  assetPhotoBlobs = [];
+  document.getElementById('asset-photo-input').value = '';
+  document.getElementById('asset-photo-status').textContent = '';
+  document.getElementById('clear-asset-photos-btn').style.display = 'none';
 });
 
 document.getElementById('save-asset-btn').addEventListener('click', async () => {
