@@ -112,7 +112,13 @@ input[type="file"] { scroll-margin-top: 90px; }
         </div>
         <button id="add-item-row-btn" style="margin-top:8px;">+ เพิ่มรายการ</button>
 
-        <div class="total-line"><span>ยอดรวม</span><span id="items-total">0 บาท</span></div>
+        <div class="total-line"><span>ยอดรวมสินค้า</span><span id="items-total">0 บาท</span></div>
+
+        <div class="row" style="margin-top:8px;">
+          <div class="field"><label>ส่วนลดท้ายบิล</label><input id="exp-discount" type="number" min="0" step="0.01" placeholder="โค้ด/คูปอง/Coins"></div>
+          <div class="field"><label>ค่าส่ง</label><input id="exp-shipping" type="number" min="0" step="0.01" placeholder="0"></div>
+        </div>
+        <div id="bill-adjust-summary" class="muted" style="display:none; margin-bottom:6px;"></div>
 
         <div class="field" style="margin-top:12px;"><label>โน้ต (ถ้ามี)</label><textarea id="exp-note" rows="2"></textarea></div>
 
@@ -619,10 +625,46 @@ function renderItemsTable() {
   updateItemsTotal();
 }
 
+function round2(n) { return Math.round(n * 100) / 100; }
+
+function readBillAdjustment() {
+  const discount = Math.max(0, Number(document.getElementById('exp-discount').value) || 0);
+  const shipping = Math.max(0, Number(document.getElementById('exp-shipping').value) || 0);
+  return { discount, shipping, net: shipping - discount };
+}
+
+// Spreads a bill-level adjustment (shipping minus discount) across items in proportion to each line's
+// value, so per-item cost equals what was actually paid. Line totals are rounded to 2dp and the last
+// line absorbs the leftover cent, so the lines add up exactly to subtotal + adjustment.
+// Returns the effective unit_price for each item (same order as `items`).
+function allocateBillAdjustment(items, adjustment) {
+  const subtotal = items.reduce((s, it) => s + it.quantity * it.unit_price, 0);
+  if (!adjustment || subtotal <= 0) return items.map(it => it.unit_price);
+  const target = round2(subtotal + adjustment);
+  let allocated = 0;
+  return items.map((it, i) => {
+    const line = it.quantity * it.unit_price;
+    const alloc = i === items.length - 1 ? round2(target - allocated) : round2(line * target / subtotal);
+    allocated += alloc;
+    return Math.round(alloc / it.quantity * 1e8) / 1e8;
+  });
+}
+
 function updateItemsTotal() {
   const total = expenseItems.reduce((sum, it) => sum + (Number(it.quantity) || 0) * (Number(it.unit_price) || 0), 0);
   document.getElementById('items-total').textContent = money(total);
+  const { discount, shipping, net } = readBillAdjustment();
+  const summary = document.getElementById('bill-adjust-summary');
+  if (net === 0 && discount === 0 && shipping === 0) {
+    summary.style.display = 'none';
+  } else {
+    const paid = total + net;
+    summary.innerHTML = `ยอดที่จ่ายจริง <b>${money(paid)}</b> (สินค้า ${money(total)} − ส่วนลด ${money(discount)} + ค่าส่ง ${money(shipping)}) — ระบบจะกระจายส่วนต่างเข้าราคาต่อหน่วยของแต่ละรายการตามสัดส่วนตอนบันทึก`;
+    summary.style.display = 'block';
+  }
 }
+
+['exp-discount', 'exp-shipping'].forEach(id => document.getElementById(id).addEventListener('input', updateItemsTotal));
 
 function addBlankItemRow() {
   expenseItems.push({ item_name: '', quantity: 1, unit_price: 0, category_id: expenseCategories[0]?.id || '' });
@@ -642,6 +684,9 @@ function resetExpenseForm() {
   document.getElementById('expense-save-banner').style.display = 'none';
   document.getElementById('exp-vendor').value = '';
   document.getElementById('exp-note').value = '';
+  document.getElementById('exp-discount').value = '';
+  document.getElementById('exp-shipping').value = '';
+  document.getElementById('bill-adjust-summary').style.display = 'none';
   document.getElementById('exp-date').value = todayStr();
 }
 
@@ -871,13 +916,27 @@ document.getElementById('save-expense-btn').addEventListener('click', async () =
     return;
   }
 
+  const { discount, shipping, net: billAdjustment } = readBillAdjustment();
+  const itemsSubtotal = validItems.reduce((s, it) => s + it.quantity * it.unit_price, 0);
+  if (itemsSubtotal + billAdjustment <= 0) {
+    banner.className = 'banner err';
+    banner.textContent = 'ส่วนลดมากกว่ายอดสินค้า ตรวจสอบตัวเลขอีกครั้ง';
+    banner.style.display = 'block';
+    return;
+  }
+  const effectiveUnitPrices = allocateBillAdjustment(validItems, billAdjustment);
+  const adjustmentNote = (discount || shipping)
+    ? `[ส่วนลดท้ายบิล ${money(discount)} / ค่าส่ง ${money(shipping)} — กระจายเข้าราคาต่อหน่วยแล้ว, ยอดสินค้าก่อนปรับ ${money(itemsSubtotal)}]`
+    : '';
+  const noteText = [document.getElementById('exp-note').value.trim(), adjustmentNote].filter(Boolean).join('\n') || null;
+
   const saveBtn = document.getElementById('save-expense-btn');
   saveBtn.disabled = true;
   try {
     const { data: expenseRow, error: expenseErr } = await sbClient.from('expenses').insert({
       expense_date: document.getElementById('exp-date').value || todayStr(),
       vendor: document.getElementById('exp-vendor').value || null,
-      note: document.getElementById('exp-note').value || null,
+      note: noteText,
       payment_account_id: document.getElementById('exp-payment-account').value || null,
       source: receiptPhotoFromOcr ? 'ocr' : 'manual',
       created_by: currentSession.user.id,
@@ -918,7 +977,7 @@ document.getElementById('save-expense-btn').addEventListener('click', async () =
           category_id: it.category_id,
           item_name: trimmedName,
           quantity: it.quantity,
-          unit_price: it.unit_price,
+          unit_price: effectiveUnitPrices[idx],
           sort_order: idx,
           product_id: matchedProduct ? matchedProduct.id : null,
         };
