@@ -2505,7 +2505,7 @@ async function loadExpenseList() {
     // Fetch the most recently created EXPENSES first (a genuine top-level order), then
     // their items, and re-attach.
     let expQuery = sbClient.from('expenses')
-      .select('id, expense_date, vendor, payment_account_id, receipt_photo_path, note, created_at')
+      .select('id, expense_no, expense_date, vendor, payment_account_id, receipt_photo_path, note, created_at')
       .order('created_at', { ascending: false }).limit(10);
     if (accountId) expQuery = expQuery.eq('payment_account_id', accountId);
     const { data: recentExpenses, error: expErr } = await expQuery;
@@ -2535,7 +2535,7 @@ async function loadExpenseList() {
     }
   } else {
     let query = sbClient.from('expense_items')
-      .select('id, item_name, product_id, quantity, unit_price, category_id, expense_id, expenses!inner(expense_date, vendor, payment_account_id, receipt_photo_path, note, created_at)')
+      .select('id, item_name, product_id, quantity, unit_price, category_id, expense_id, expenses!inner(expense_no, expense_date, vendor, payment_account_id, receipt_photo_path, note, created_at)')
       .order('expense_date', { foreignTable: 'expenses', ascending: false });
     if (from) query = query.gte('expenses.expense_date', from);
     if (to) query = query.lte('expenses.expense_date', to);
@@ -2633,7 +2633,7 @@ async function loadExpenseList() {
               <button data-id="${r.id}" class="delete-expense-item-btn" type="button" style="padding:2px 10px; font-size:12px;">ลบ</button>
             </span>
           </div>
-          <div class="sub-line"><span>${acct ? acct.label_th : 'ไม่ระบุบัญชี'}${r.expenses.vendor ? ' · ' + r.expenses.vendor : ''}</span></div>
+          <div class="sub-line"><span>${r.expenses.expense_no ? `<strong title="เลขที่รายจ่าย (ใบเสร็จ 1 ใบ = 1 เลข)">E-${String(r.expenses.expense_no).padStart(4, '0')}</strong> · ` : ''}${acct ? acct.label_th : 'ไม่ระบุบัญชี'}${r.expenses.vendor ? ' · ' + r.expenses.vendor : ''}</span></div>
           ${rawNameLine}
           <div class="edit-panel-row" data-id="${r.id}" style="display:none; margin-top:8px; padding-top:8px; border-top:1px dashed var(--border);">
             <div style="font-weight:500; font-size:13px; margin-bottom:6px;">แก้ไขสินค้า</div>
