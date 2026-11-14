@@ -138,6 +138,9 @@ input[type="file"] { scroll-margin-top: 90px; }
   <!-- TAB: รายการรายจ่าย -->
   <div id="tab-expense-list" class="tab-panel" style="display:none;">
     <div class="card">
+      <div class="field" style="margin-bottom:10px;">
+        <input id="expense-search" type="search" placeholder="ค้นหา: ชื่อสินค้า / ผู้ขาย / หมายเหตุ / เลข E-0001 (ค้นทุกวันที่)" autocomplete="off">
+      </div>
       <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
         <button id="preset-today-btn" type="button" style="flex:1; min-width:100px;">วันนี้</button>
         <button id="preset-month-btn" type="button" style="flex:1; min-width:100px;">เดือนนี้</button>
@@ -2478,8 +2481,39 @@ document.getElementById('apply-filter-btn').addEventListener('click', () => {
   expenseListMode = 'date';
   loadExpenseList();
 });
+{
+  // text search across item name / vendor / note / expense number — ignores the date range on purpose
+  // (the whole point is finding a receipt whose date might be wrong), debounced while typing
+  let searchTimer = null;
+  const searchInput = document.getElementById('expense-search');
+  searchInput.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => { expenseListMode = 'date'; loadExpenseList(); }, 400);
+  });
+  searchInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { clearTimeout(searchTimer); expenseListMode = 'date'; loadExpenseList(); }
+  });
+}
+// returns expense ids whose vendor/note/expense_no or any item name contains the text, or an error message
+async function searchExpenseIds(text) {
+  const like = '%' + text.replace(/[%_\\]/g, m => '\\' + m) + '%';
+  const queries = [
+    sbClient.from('expenses').select('id').ilike('vendor', like).limit(500),
+    sbClient.from('expenses').select('id').ilike('note', like).limit(500),
+    sbClient.from('expense_items').select('expense_id').ilike('item_name', like).limit(1000),
+  ];
+  const m = text.match(/^e?-?\s*0*(\d{1,7})$/i);
+  if (m) queries.push(sbClient.from('expenses').select('id').eq('expense_no', Number(m[1])));
+  const results = await Promise.all(queries);
+  const err = results.find(r => r.error);
+  if (err) return { error: err.error.message };
+  const ids = new Set();
+  results.forEach(r => (r.data || []).forEach(x => ids.add(x.id || x.expense_id)));
+  return { ids: [...ids] };
+}
 document.getElementById('clear-filter-btn').addEventListener('click', () => {
   expenseListMode = 'date';
+  document.getElementById('expense-search').value = '';
   setExpenseListRangeToThisMonth();
   document.getElementById('filter-category').value = '';
   document.getElementById('filter-account').value = '';
@@ -2494,9 +2528,39 @@ async function loadExpenseList() {
 
   const container = document.getElementById('expense-list-container');
   let rows;
+  let searchTruncated = false;
   let recentExpenseCount = 0; // "recent" mode limits by receipt, not by line item — track separately for the summary text
 
-  if (expenseListMode === 'recent') {
+  const searchText = document.getElementById('expense-search').value.trim();
+  const SEARCH_ID_CAP = 150; // .in() puts every uuid in the URL — keep it under URL length limits
+
+  if (searchText) {
+    expenseListMode = 'date'; // search results group by date, never by "recent" receipt order
+    const found = await searchExpenseIds(searchText);
+    if (found.error) {
+      container.innerHTML = `<div class="banner err">ค้นหาไม่สำเร็จ: ${found.error}</div>`;
+      return;
+    }
+    searchTruncated = found.ids.length > SEARCH_ID_CAP;
+    const ids = found.ids.slice(0, SEARCH_ID_CAP);
+    if (ids.length === 0) {
+      rows = [];
+    } else {
+      let query = sbClient.from('expense_items')
+        .select('id, item_name, product_id, quantity, unit_price, category_id, expense_id, expenses!inner(expense_no, expense_date, vendor, payment_account_id, receipt_photo_path, note, created_at)')
+        .in('expense_id', ids)
+        .order('expense_date', { foreignTable: 'expenses', ascending: false })
+        .limit(2000);
+      if (categoryId) query = query.eq('category_id', categoryId);
+      if (accountId) query = query.eq('expenses.payment_account_id', accountId);
+      const { data, error } = await query;
+      if (error) {
+        container.innerHTML = `<div class="banner err">โหลดข้อมูลไม่สำเร็จ: ${error.message}</div>`;
+        return;
+      }
+      rows = data || [];
+    }
+  } else if (expenseListMode === 'recent') {
     // PostgREST's order(col, {foreignTable}) only orders rows WITHIN a nested/embedded
     // resource — it does not sort the outer table by a many-to-one parent's column, so
     // ordering expense_items by expenses.created_at that way silently returns arbitrary
@@ -2549,7 +2613,9 @@ async function loadExpenseList() {
     rows = data || [];
   }
   const total = rows.reduce((s, r) => s + Number(r.quantity) * Number(r.unit_price), 0);
-  document.getElementById('expense-list-summary').textContent = expenseListMode === 'recent'
+  document.getElementById('expense-list-summary').textContent = searchText
+    ? `ค้นหา "${searchText}" (ทุกวันที่): พบ ${rows.length} รายการ · ยอดรวม ${money(total)}${searchTruncated ? ` · แสดงเฉพาะ ${SEARCH_ID_CAP} ใบแรก ใส่คำค้นให้เจาะจงขึ้น` : ''}`
+    : expenseListMode === 'recent'
     ? `${rows.length} รายการ จากใบเสร็จ ${recentExpenseCount} ใบล่าสุด (ไม่ว่าจะลงวันที่ไว้เป็นวันไหนก็ตาม) · ยอดรวม ${money(total)}`
     : `พบ ${rows.length} รายการ · ยอดรวม ${money(total)}`;
 
