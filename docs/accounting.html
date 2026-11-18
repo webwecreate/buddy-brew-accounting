@@ -2520,6 +2520,10 @@ document.getElementById('clear-filter-btn').addEventListener('click', () => {
   loadExpenseList();
 });
 
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 async function loadExpenseList() {
   const from = document.getElementById('filter-date-from').value;
   const to = document.getElementById('filter-date-to').value;
@@ -2654,6 +2658,8 @@ async function loadExpenseList() {
   });
   const groupKeys = expenseListMode === 'recent' ? Object.keys(byGroup) : Object.keys(byGroup).sort().reverse();
 
+  // the remark (expenses.note) belongs to the whole receipt: show it once, on the first card of each receipt
+  const remarkShown = new Set();
   container.innerHTML = groupKeys.map(key => `
     <div class="date-header">${thaiDateStr(byGroup[key][0].expenses.expense_date)}</div>
     ${byGroup[key].map(r => {
@@ -2668,6 +2674,10 @@ async function loadExpenseList() {
         : `<span>${r.item_name}</span>`;
       const rawNameLine = (product && product.name !== r.item_name)
         ? `<div class="sub-line"><span class="muted">บันทึกไว้ว่า: ${r.item_name}</span></div>` : '';
+      const remarkText = (r.expenses.note || '').trim();
+      const remarkHtml = (remarkText && !remarkShown.has(r.expense_id))
+        ? `<div class="sub-line" style="align-items:flex-start;"><span style="white-space:pre-wrap; min-width:0; overflow-wrap:anywhere;">📝 ${escapeHtml(remarkText)}</span></div>` : '';
+      remarkShown.add(r.expense_id);
       const photos = photosByExpense[r.expense_id] || [];
       const photoBtn = photos.length === 0 ? '' :
         `<button data-expense-id="${r.expense_id}" class="view-receipt-photo-btn" type="button" style="padding:2px 10px; font-size:12px;">ดูรูปสลิป${photos.length > 1 ? ` (${photos.length})` : ''}</button>`;
@@ -2701,6 +2711,7 @@ async function loadExpenseList() {
           </div>
           <div class="sub-line"><span>${r.expenses.expense_no ? `<strong title="เลขที่รายจ่าย (ใบเสร็จ 1 ใบ = 1 เลข)">E-${String(r.expenses.expense_no).padStart(4, '0')}</strong> · ` : ''}${acct ? acct.label_th : 'ไม่ระบุบัญชี'}${r.expenses.vendor ? ' · ' + r.expenses.vendor : ''}</span></div>
           ${rawNameLine}
+          ${remarkHtml}
           <div class="edit-panel-row" data-id="${r.id}" style="display:none; margin-top:8px; padding-top:8px; border-top:1px dashed var(--border);">
             <div style="font-weight:500; font-size:13px; margin-bottom:6px;">แก้ไขสินค้า</div>
             <div class="field" style="margin-bottom:6px;">
@@ -2714,6 +2725,11 @@ async function loadExpenseList() {
             <div class="field" style="margin-bottom:6px;">
               <label>หมวด</label>
               <select class="edit-item-category">${categoryOptionsHtml(r.category_id)}</select>
+            </div>
+            <div class="field" style="margin-bottom:6px;">
+              <label>หมายเหตุ (remark)</label>
+              <textarea class="edit-receipt-note" rows="3" data-original="${escapeHtml(r.expenses.note || '')}" placeholder="เช่น ใช้สลิปเดียวกับ E-0291">${escapeHtml(r.expenses.note || '')}</textarea>
+              <span class="muted" style="font-size:11px;">ใช้ร่วมกับทุกรายการในใบเสร็จนี้ — กด "บันทึก" ด้านล่างเพื่อบันทึกพร้อมข้อมูลสินค้า</span>
             </div>
             <button data-id="${r.id}" class="save-item-edit-btn primary" type="button" style="font-size:12px; padding:4px 12px;">บันทึก</button>
 
@@ -2851,9 +2867,17 @@ async function loadExpenseList() {
         return;
       }
       btn.disabled = true;
-      await sbClient.from('expense_items').update({
+      const { error: itemErr } = await sbClient.from('expense_items').update({
         item_name: name, quantity, unit_price: unitPrice, category_id: categoryId,
       }).eq('id', btn.dataset.id);
+      if (itemErr) { alert('บันทึกไม่สำเร็จ: ' + itemErr.message); btn.disabled = false; return; }
+      // remark is receipt-level (expenses.note); only write it when it was actually edited
+      const noteEl = row.querySelector('.edit-receipt-note');
+      if (noteEl && noteEl.value !== noteEl.dataset.original) {
+        const expenseId = rows.find(x => x.id === btn.dataset.id).expense_id;
+        const { error: noteErr } = await sbClient.from('expenses').update({ note: noteEl.value.trim() || null }).eq('id', expenseId);
+        if (noteErr) { alert('บันทึกหมายเหตุไม่สำเร็จ: ' + noteErr.message); btn.disabled = false; return; }
+      }
       loadExpenseList();
     });
   });
