@@ -85,8 +85,8 @@ input[type="file"] { scroll-margin-top: 90px; }
   <div id="tab-expense" class="tab-panel">
     <div class="card">
       <div class="field">
-        <label>ถ่ายรูป/เลือกรูปใบเสร็จ</label>
-        <input id="receipt-photo-input" type="file" accept="image/*">
+        <label>ถ่ายรูป/เลือกรูปใบเสร็จ (เลือกได้หลายรูป — รูปแรกใช้อ่าน OCR รูปอื่นแนบเป็นหลักฐาน)</label>
+        <input id="receipt-photo-input" type="file" accept="image/*" multiple>
       </div>
       <div id="ocr-status" class="muted" style="display:none; margin-bottom:10px;"></div>
       <button id="manual-entry-btn" style="width:100%; margin-bottom:12px;">กรอกเอง (ไม่ใช้ OCR)</button>
@@ -687,8 +687,7 @@ function resetExpenseForm() {
   evidencePhotoBlobs = [];
   document.getElementById('receipt-photo-input').value = '';
   document.getElementById('evidence-photo-input').value = '';
-  document.getElementById('evidence-photo-status').textContent = '';
-  document.getElementById('clear-evidence-photos-btn').style.display = 'none';
+  updateAttachedPhotoStatus();
   document.getElementById('ocr-status').style.display = 'none';
   document.getElementById('expense-form').style.display = 'none';
   document.getElementById('expense-save-banner').style.display = 'none';
@@ -711,28 +710,45 @@ document.addEventListener('click', (e) => {
   }
 }, true);
 
-document.getElementById('evidence-photo-input').addEventListener('change', async (e) => {
-  const rawFiles = Array.from(e.target.files || []);
-  if (rawFiles.length === 0) return;
-  const files = await previewPhotosBeforeConfirm(rawFiles);
-  if (!files) { e.target.value = ''; return; }
+// รูปที่เลือกทุกครั้งจะ "เพิ่ม" เข้ากองเดิม ไม่ทับรูปก่อนหน้า (รูปหลักจากช่อง OCR + รูปหลักฐาน)
+function updateAttachedPhotoStatus() {
+  const status = document.getElementById('evidence-photo-status');
+  const total = (receiptPhotoBlob ? 1 : 0) + evidencePhotoBlobs.length;
+  status.textContent = total > 0
+    ? `แนบแล้ว ${total} รูป ✓${receiptPhotoBlob ? ' (รวมรูปจากช่องบนที่ใช้อ่าน OCR)' : ''}`
+    : '';
+  document.getElementById('clear-evidence-photos-btn').style.display = total > 0 ? 'inline-block' : 'none';
+}
+
+async function addEvidencePhotos(files) {
   const status = document.getElementById('evidence-photo-status');
   status.textContent = 'กำลังเตรียมรูป...';
   try {
-    evidencePhotoBlobs = await Promise.all(files.map(f => downscaleImage(f)));
-    status.textContent = `แนบแล้ว ${evidencePhotoBlobs.length} รูป ✓`;
-    document.getElementById('clear-evidence-photos-btn').style.display = 'inline-block';
+    const blobs = await Promise.all(files.map(f => downscaleImage(f)));
+    evidencePhotoBlobs = evidencePhotoBlobs.concat(blobs);
+    updateAttachedPhotoStatus();
   } catch (err) {
     console.error(err);
     status.textContent = 'แนบรูปไม่สำเร็จ ลองใหม่อีกครั้ง';
   }
+}
+
+document.getElementById('evidence-photo-input').addEventListener('change', async (e) => {
+  const rawFiles = Array.from(e.target.files || []);
+  if (rawFiles.length === 0) return;
+  const files = await previewPhotosBeforeConfirm(rawFiles);
+  e.target.value = ''; // เคลียร์ช่อง เพื่อให้เลือกรูปเพิ่มรอบถัดไปได้ (รูปที่แนบแล้วเก็บไว้ในหน่วยความจำ)
+  if (!files) return;
+  await addEvidencePhotos(files);
 });
 
 document.getElementById('clear-evidence-photos-btn').addEventListener('click', () => {
   evidencePhotoBlobs = [];
+  receiptPhotoBlob = null;
+  receiptPhotoFromOcr = false;
+  document.getElementById('receipt-photo-input').value = '';
   document.getElementById('evidence-photo-input').value = '';
-  document.getElementById('evidence-photo-status').textContent = '';
-  document.getElementById('clear-evidence-photos-btn').style.display = 'none';
+  updateAttachedPhotoStatus();
 });
 
 document.getElementById('manual-entry-btn').addEventListener('click', () => {
@@ -855,11 +871,19 @@ function blobToBase64(blob) {
 }
 
 document.getElementById('receipt-photo-input').addEventListener('change', async (e) => {
-  const rawFile = e.target.files[0];
-  if (!rawFile) return;
-  const confirmedFiles = await previewPhotosBeforeConfirm([rawFile]);
-  if (!confirmedFiles) { e.target.value = ''; return; }
+  const rawFiles = Array.from(e.target.files || []);
+  if (rawFiles.length === 0) return;
+  const confirmedFiles = await previewPhotosBeforeConfirm(rawFiles);
+  e.target.value = '';
+  if (!confirmedFiles) return;
+
+  // เลือกรูปซ้ำหลังมีรูปหลักแล้ว (หรือเลือกหลายรูปพร้อมกัน): ไม่อ่าน OCR ซ้ำและไม่ทับรูปเดิม แนบเพิ่มเป็นรูปหลักฐาน
+  if (receiptPhotoBlob) {
+    await addEvidencePhotos(confirmedFiles);
+    return;
+  }
   const file = confirmedFiles[0];
+  if (confirmedFiles.length > 1) await addEvidencePhotos(confirmedFiles.slice(1));
 
   const ocrStatus = document.getElementById('ocr-status');
   ocrStatus.style.display = 'block';
@@ -868,7 +892,7 @@ document.getElementById('receipt-photo-input').addEventListener('change', async 
   try {
     receiptPhotoBlob = await downscaleImage(file);
     receiptPhotoFromOcr = true;
-    document.getElementById('evidence-photo-status').textContent = 'แนบรูปแล้ว ✓ (ใช้รูปเดียวกับที่อ่าน OCR)';
+    updateAttachedPhotoStatus();
     const base64 = await blobToBase64(receiptPhotoBlob);
 
     const { data, error } = await sbClient.functions.invoke('receipt-ocr', {
