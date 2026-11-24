@@ -13,7 +13,10 @@
     --text-primary:#1a1a1a; --text-secondary:#5f5e5a; --text-muted:#888780;
     --border:#e3e1d8; --border-strong:#cfcdc2; --radius:8px;
     --accent:#2f6f4f; --danger:#A32D2D;
+    --page-w:480px;
   }
+  /* desktop: ขยายหน้าให้กว้างขึ้นเห็นคอลัมน์ครบ ไม่ต้อง scroll ยาว (มือถือยังเป็น 480px เหมือนเดิม) */
+  @media (min-width: 900px) { :root { --page-w:min(1280px, 94vw); } body { padding-left:24px; padding-right:24px; } }
   *, *::before, *::after { box-sizing: border-box; }
   html, body { max-width: 100%; overflow-x: hidden; }
   body { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; background: var(--surface-0); margin:0; padding: 24px 16px 64px; color: var(--text-primary); }
@@ -25,12 +28,12 @@
   input, select, textarea { width:100%; box-sizing:border-box; padding:9px 10px; border-radius:8px; border:0.5px solid var(--border-strong); font-size:14px; font-family:inherit; color:var(--text-primary); background:#fff; }
   label { display:block; font-size:12px; color:var(--text-secondary); margin-bottom:4px; }
   .field { margin-bottom:12px; }
-  .card { background: var(--surface-2); border-radius: 12px; border: 0.5px solid var(--border); padding: 1.1rem; max-width:480px; margin:0 auto 16px; }
+  .card { background: var(--surface-2); border-radius: 12px; border: 0.5px solid var(--border); padding: 1.1rem; max-width:var(--page-w); margin:0 auto 16px; }
   .row { display:flex; gap:8px; }
   .row > * { flex:1; min-width:0; }
   .table-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; margin:0 -4px; padding:0 4px; }
   .muted { color: var(--text-muted); font-size:12px; }
-  .tabbar { display:flex; gap:6px; max-width:480px; margin:0 auto 16px; flex-wrap:wrap; }
+  .tabbar { display:flex; gap:6px; max-width:var(--page-w); margin:0 auto 16px; flex-wrap:wrap; }
   .tabbar button { flex:1; min-width: 100px; }
   .tabbar button.active { background: var(--accent); border-color: var(--accent); color:#fff; }
   table { width:100%; border-collapse: collapse; font-size:13px; }
@@ -55,7 +58,7 @@ input[type="file"] { scroll-margin-top: 90px; }
 </head>
 <body>
 
-<div id="login-screen" class="card" style="display:none;">
+<div id="login-screen" class="card" style="display:none; max-width:480px;">
   <div style="font-weight:500; font-size:16px; margin-bottom:16px;">เข้าสู่ระบบบัญชี</div>
   <form id="login-form">
     <div class="field"><input id="login-email" type="email" placeholder="อีเมล" required></div>
@@ -66,7 +69,7 @@ input[type="file"] { scroll-margin-top: 90px; }
 </div>
 
 <div id="app" style="display:none;">
-  <div style="max-width:480px; margin:0 auto 12px; display:flex; justify-content:space-between; align-items:center;">
+  <div style="max-width:var(--page-w); margin:0 auto 12px; display:flex; justify-content:space-between; align-items:center;">
     <div style="font-weight:500; font-size:16px;">Buddy Brew — บัญชี</div>
     <button id="logout-btn">ออกจากระบบ</button>
   </div>
@@ -336,7 +339,7 @@ input[type="file"] { scroll-margin-top: 90px; }
           <div class="field"><label>ราคาซื้อ (บาท)</label><input id="asset-price" type="number" min="0" step="0.01"></div>
           <div class="field"><label>วันที่ซื้อ</label><input id="asset-date" type="date"></div>
         </div>
-        <div class="field"><label>อายุใช้งาน (เดือน)</label><input id="asset-life" type="number" min="1" value="24"></div>
+        <div class="field"><label>อายุใช้งาน (เดือน) — ใส่ 0 = ไม่คิดค่าเสื่อม</label><input id="asset-life" type="number" min="0" value="24"></div>
         <div class="field"><label>ซื้อจากร้าน/ผู้ขาย (ถ้ามี)</label><input id="asset-vendor" type="text" placeholder="เช่น Makro" list="vendor-name-list"></div>
         <div class="field">
           <label>จ่ายจากบัญชี (ถ้ามี — เว้นว่างได้ถ้าไม่ได้จ่ายผ่านบัญชีร้าน เช่น เจ้าของจ่ายตรงให้ผู้ขาย)</label>
@@ -1788,6 +1791,8 @@ const assetCategoryLabel = { equipment: 'อุปกรณ์', decor: 'ตก�
 function assetDepreciation(asset, asOfDate = new Date()) {
   const start = new Date(asset.purchase_date);
   const end = asset.status === 'disposed' && asset.disposed_date ? new Date(asset.disposed_date) : asOfDate;
+  // useful_life_months = 0 → "ไม่คิดค่าเสื่อม" (ใช้ดูมูลค่าของที่มีในร้านเฉยๆ): มูลค่าคงที่เท่าราคาซื้อ
+  if (!(asset.useful_life_months > 0)) return { accumulated: 0, bookValue: asset.purchase_price };
   const monthsElapsed = Math.max(0, Math.min(asset.useful_life_months,
     (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth())));
   const monthlyDep = asset.purchase_price / asset.useful_life_months;
@@ -2363,7 +2368,7 @@ document.getElementById('save-asset-btn').addEventListener('click', async () => 
     category: document.getElementById('asset-category').value,
     purchase_price: price,
     purchase_date: date,
-    useful_life_months: Number(document.getElementById('asset-life').value) || 24,
+    useful_life_months: (() => { const v = document.getElementById('asset-life').value.trim(); return v === '' ? 24 : Math.max(0, Math.round(Number(v)) || 0); })(),
     vendor: document.getElementById('asset-vendor').value.trim() || null,
     payment_account_id: document.getElementById('asset-payment-account').value || null,
     note: document.getElementById('asset-note').value || null,
