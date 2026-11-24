@@ -15,8 +15,8 @@
     --accent:#2f6f4f; --danger:#A32D2D;
     --page-w:480px;
   }
-  /* desktop: ขยายหน้าให้กว้างขึ้นเห็นคอลัมน์ครบ ไม่ต้อง scroll ยาว (มือถือยังเป็น 480px เหมือนเดิม) */
-  @media (min-width: 900px) { :root { --page-w:min(1280px, 94vw); } body { padding-left:24px; padding-right:24px; } }
+  /* จอ >=600px (แท็บเล็ต/desktop): ขยายหน้าเต็มความกว้าง (สูงสุด 1280px) เห็นคอลัมน์ครบ ไม่ต้อง scroll ยาว; มือถือแคบยังเป็นเต็มจอ/สูงสุด 480px */
+  @media (min-width: 600px) { :root { --page-w:min(1280px, 100%); } }
   *, *::before, *::after { box-sizing: border-box; }
   html, body { max-width: 100%; overflow-x: hidden; }
   body { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; background: var(--surface-0); margin:0; padding: 24px 16px 64px; color: var(--text-primary); }
