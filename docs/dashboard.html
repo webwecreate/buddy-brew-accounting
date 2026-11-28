@@ -80,6 +80,9 @@
   .progress { height: 10px; border-radius: 6px; background: var(--surface-2); overflow: hidden; margin: 10px 0 6px; position: relative; }
   .progress > span { position: absolute; left: 0; top: 0; bottom: 0; background: var(--series-1); border-radius: 6px; }
   .progress > i { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--text-primary); }
+  .pwrap { position: relative; padding-top: 18px; }
+  .pwrap .tl { position: absolute; top: 0; font-size: 11.5px; line-height: 16px; color: var(--text-primary); white-space: nowrap; }
+  .pwrap .tl::after { content: ''; position: absolute; left: 50%; bottom: -4px; width: 2px; height: 4px; background: var(--text-primary); }
   .chart-box { position: relative; height: 260px; }
   .chart-box.tall { height: 320px; }
   .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--text-secondary); margin: 2px 0 8px; }
@@ -216,8 +219,8 @@ const MOCK_URL = IS_LOCAL ? new URLSearchParams(location.search).get('mock') : n
 const TH_MONTH = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 const TH_DAY = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
 const D = {};            // loaded data
-let state = { tab: 'overview', month: null, salesRange: 3, menuRange: 'month', menuSort: 'profit', goalLevel: 1 };
-try { const g = Number(localStorage.getItem('bb-dash-goal')); if (g >= 1 && g <= 4) state.goalLevel = g; } catch (_) {}
+let state = { tab: 'overview', month: null, salesRange: 3, menuRange: 'month', menuSort: 'profit', goalLevel: 1, beanLevel: 'all' };
+try { const g = Number(localStorage.getItem('bb-dash-goal')); if (g >= 1 && g <= 4) state.goalLevel = g; const r = localStorage.getItem('bb-dash-roast'); if (['all', 'light', 'medium', 'dark'].includes(r)) state.beanLevel = r; } catch (_) {}
 let charts = [];
 
 // ---------- helpers ----------
@@ -267,7 +270,7 @@ async function fetchAll(table, select = '*', order) {
 
 async function loadData() {
   if (MOCK_URL) D.__mock = await (await fetch(MOCK_URL, { cache: 'no-store' })).json();
-  const [daily, hourly, menuSales, optionSales, fixedItems, settings, closures, expenseItems, categories, menuCosts, expenses, assets, liabilities, accounts, targets, balances, ownerEntries, liabPayments, promos, invCounts] = await Promise.all([
+  const [daily, hourly, menuSales, optionSales, fixedItems, settings, closures, expenseItems, categories, menuCosts, expenses, assets, liabilities, accounts, targets, balances, ownerEntries, liabPayments, promos, invCounts, beanPeriods, beanMap] = await Promise.all([
     fetchAll('v_sales_daily', '*', 'business_date'),
     fetchAll('v_sales_hourly', '*'),
     fetchAll('v_menu_sales', '*'),
@@ -288,8 +291,11 @@ async function loadData() {
     fetchAll('liability_payments', 'id,liability_id,payment_date,amount,payment_account_id'),
     fetchAll('pos_promotions', '*').catch(() => []),
     fetchAll('inventory_counts', '*').catch(() => []),
+    fetchAll('bean_usage_periods', '*').catch(() => []),
+    fetchAll('bean_pos_option_map', '*').catch(() => []),
   ]);
-  Object.assign(D, { daily, hourly, menuSales, optionSales, fixedItems, settings, closures, expenseItems, categories, menuCosts, expenses, assets, liabilities, accounts, targets, balances, ownerEntries, liabPayments, promos, invCounts });
+  Object.assign(D, { daily, hourly, menuSales, optionSales, fixedItems, settings, closures, expenseItems, categories, menuCosts, expenses, assets, liabilities, accounts, targets, balances, ownerEntries, liabPayments, promos, invCounts, beanPeriods, beanMap });
+  attachBeans();
   D.shopAcct = new Set(D.accounts.filter(a => a.key !== 'owner_advance').map(a => a.id));   // money that belongs to the shop
   D.closureMap = Object.fromEntries(D.closures.map(c => [c.closed_date, c.reason || 'หยุดพิเศษ']));
   D.catById = Object.fromEntries(D.categories.map(c => [c.id, c]));
@@ -327,6 +333,21 @@ function costFor(menuName, temp) {
 }
 
 // ---------- calculations ----------
+// ---------- beans: credit each POS bean option to the bean really in use that day (bean_usage_periods) ----------
+const ROAST = { light: 'คั่วอ่อน', medium: 'คั่วกลาง', dark: 'คั่วกลางเข้ม' }, ROAST_ORDER = ['light', 'medium', 'dark'];
+const beanLabel = p => p.bean_name + (p.roaster ? ` · ${p.roaster}` : '');
+function attachBeans() {
+  const map = Object.fromEntries(D.beanMap.map(x => [x.pos_option, x])), slots = {};
+  for (const p of D.beanPeriods) { const k = p.pos_option ? 'o:' + p.pos_option : 't:' + p.roast_level; (slots[k] = slots[k] || []).push(p); }
+  Object.values(slots).forEach(a => a.sort((x, y) => x.start_date < y.start_date ? -1 : 1));
+  const pick = (k, d) => { let hit = null; for (const p of slots[k] || []) { if (p.start_date <= d) hit = p; else break; } return hit && (!hit.end_date || d <= hit.end_date) ? hit : null; };
+  D.beanSales = D.optionSales.filter(r => r.kind === 'bean').map(r => {
+    const m = map[r.name], p = pick('o:' + r.name, r.business_date) || (m && m.roast_level ? pick('t:' + m.roast_level, r.business_date) : null);
+    const level = p ? p.roast_level : (m && m.roast_level) || null;
+    const label = p ? beanLabel(p) : D.beanPeriods.length ? `ไม่ทราบเมล็ด (POS: ${r.name})` : r.name;
+    return { date: r.business_date, channel: r.channel, qty: num(r.qty), opt: r.name, detail: r.detail, p, level, label };
+  });
+}
 function monthDays(m) { return D.daily.filter(r => ym(r.business_date) === m); }
 function salesOfMonth(m) {
   const rows = monthDays(m);
@@ -511,8 +532,9 @@ function renderOverview(v) {
         <div class="seg" id="seg-goal" role="group" aria-label="เลือกขั้นเป้าหมาย">${lad.levels.slice(1).map(x => `<button data-k="${x.id}" class="${x.id === L.id ? 'on' : ''}">${esc(x.short)}</button>`).join('')}</div></div>
       <div class="rowflex" style="align-items:baseline;margin-bottom:0"><div class="num" style="font-size:22px;font-weight:500">${baht(storeDay)} <span style="font-size:15px;color:var(--text-muted);font-weight:300">/ ${baht(goal)} ฿ ต่อวัน</span></div>
         <div class="num" style="font-size:20px;font-weight:500">${pct(storeDay / goal)}</div></div>
-      <div class="progress" role="img" aria-label="ยอดหน้าร้านต่อวันเทียบเป้า"><span style="width:${w}%"></span><i style="left:${be}%" title="ค่าใช้จ่ายครบ"></i></div>
-      <p class="sub">${esc(L.label)}: ต้องขายหน้าร้าน ≈ ${baht(goal)} ฿/วัน (≈ ${nf1.format(L.cups)} แก้ว) หรือ ≈ ${baht(goal * daysPlan)} ฿/เดือน (${daysPlan} วันเปิด) · รวมโบนัส Grab (≈ ${baht(bonus)} ฿/วัน) = ${pct((storeDay + bonus) / goal)} · เส้นดำ = ค่าใช้จ่ายครบ ${baht(lad.levels[0].perDay)} ฿/วัน</p>
+      <div class="pwrap"><div class="tl" style="left:${be}%;transform:translateX(${be > 80 ? '-100%' : be < 20 ? '0' : '-50%'})">ค่าใช้จ่ายครบ ${baht(lad.levels[0].perDay)}</div>
+        <div class="progress" role="img" aria-label="ยอดหน้าร้านต่อวันเทียบเป้า ขีดดำคือยอดที่จ่ายค่าใช้จ่ายร้านครบ"><span style="width:${w}%"></span><i style="left:${be}%" title="ค่าใช้จ่ายครบ (ยังไม่รวมเงินเดือน)"></i></div></div>
+      <p class="sub">${esc(L.label)}: ต้องขายหน้าร้าน ≈ ${baht(goal)} ฿/วัน (≈ ${nf1.format(L.cups)} แก้ว) หรือ ≈ ${baht(goal * daysPlan)} ฿/เดือน (${daysPlan} วันเปิด) · รวมโบนัส Grab (≈ ${baht(bonus)} ฿/วัน) = ${pct((storeDay + bonus) / goal)} · ขีดดำ = ยอดต่อวันที่จ่ายค่าใช้จ่ายร้านครบ (ยังไม่มีเงินเดือนเจ้าของ) · ปลายแถบขวา = เป้าที่เลือก</p>
       <details><summary><span class="l">ที่มาของเป้า และทุกขั้นของเดือนนี้</span></summary>
         <div class="scroll"><table class="num"><thead><tr><th>ขั้น</th><th class="r">ต้องมีต่อเดือน</th><th class="r">หน้าร้าน ฿/วัน</th><th class="r">แก้ว/วัน</th><th class="r">${monthLabel(m)} ทำได้</th></tr></thead><tbody>
         ${lad.levels.map(x => `<tr class="${x.id === L.id ? 'sel' : ''}"><td style="white-space:normal">${x.id}. ${esc(x.label)}</td><td class="r">${baht(x.need)}</td><td class="r">${baht(x.perDay)}</td><td class="r">${nf1.format(x.cups)}</td><td class="r">${storeDay >= x.perDay ? '✓ ผ่าน' : 'ยังไม่ถึง'} (${pct(storeDay / x.perDay)})</td></tr>`).join('')}
@@ -701,7 +723,9 @@ function renderSales(v) {
 
 // ---------- menu ----------
 function renderMenu(v) {
-  const months = state.menuRange === 'month' ? [state.month] : D.months.filter(x => x <= state.month).slice(-3);
+  const upto = D.months.filter(x => x <= state.month);
+  const months = state.menuRange === 'month' ? [state.month] : state.menuRange === 'ytd' ? upto.filter(x => x.slice(0, 4) === state.month.slice(0, 4)) : upto.slice(-(state.menuRange === '6m' ? 6 : 3));
+  const monthsText = months.length > 2 ? `${monthLabelLong(months[0])} – ${monthLabelLong(months[months.length - 1])} (${months.length} เดือน)` : months.map(monthLabelLong).join(', ');
   const agg = new Map();
   for (const r of D.menuSales) {
     if (!months.includes(ym(r.business_date))) continue;
@@ -723,8 +747,8 @@ function renderMenu(v) {
   const tempTh = t => t === 'hot' ? 'ร้อน' : t === 'iced' ? 'เย็น' : '';
 
   v.innerHTML = `
-    <div class="rowflex"><div><h2>เมนูและต้นทุน</h2><p class="sub">${months.map(monthLabelLong).join(', ')} · ต้นทุนจาก Unit-cost-proposal-3 (ณ ${esc(D.menuCosts[0]?.as_of || '–')}) · หน้าร้านใช้กำไรทานร้าน, บิล Grab ใช้กำไรกลับบ้าน</p></div>
-      <div class="seg" id="seg-mr">${[['month', 'เดือนนี้'], ['3m', '3 เดือน']].map(([k, t]) => `<button data-k="${k}" class="${state.menuRange === k ? 'on' : ''}">${t}</button>`).join('')}</div></div>
+    <div class="rowflex"><div><h2>เมนูและต้นทุน</h2><p class="sub">${monthsText} · ต้นทุนจาก Unit-cost-proposal-3 (ณ ${esc(D.menuCosts[0]?.as_of || '–')}) · หน้าร้านใช้กำไรทานร้าน, บิล Grab ใช้กำไรกลับบ้าน</p></div>
+      <div class="seg" id="seg-mr">${[['month', 'เดือนนี้'], ['3m', '3 เดือน'], ['6m', '6 เดือน'], ['ytd', 'YTD']].map(([k, t]) => `<button data-k="${k}" class="${state.menuRange === k ? 'on' : ''}">${t}</button>`).join('')}</div></div>
     <div class="grid kpis">
       <div class="card kpi"><div class="label">กำไรขั้นต้นจากเครื่องดื่ม</div><div class="value num">${baht(totalProfit)} ฿</div><div class="delta">ราคาขาย − วัตถุดิบและแก้ว · ก่อนหักต้นทุนคงที่</div></div>
       <div class="card kpi"><div class="label">แก้วที่คิดต้นทุนได้</div><div class="value num">${nf0.format(matched.reduce((t, r) => t + r.qty, 0))}</div><div class="delta">ยังไม่มีต้นทุน ${nf0.format(unmatchedQty)} ชิ้น (ขนม ฯลฯ)</div></div>
@@ -740,11 +764,16 @@ function renderMenu(v) {
         </tbody></table></div></div>
     </div>
     <div class="grid two" style="margin-top:12px">
-      <div class="card"><h2>เมล็ดกาแฟที่ลูกค้าเลือก</h2><p class="sub">${months.map(monthLabelLong).join(', ')} · นับเฉพาะแก้วที่คีย์ตัวเลือกเมล็ดใน POS (หน้าร้าน + บิล Grab)</p><div id="opt-bean"></div></div>
-      <div class="card"><h2>มัทฉะที่ลูกค้าเลือก</h2><p class="sub">${months.map(monthLabelLong).join(', ')} · นับเฉพาะแก้วที่คีย์ตัวเลือกมัทฉะใน POS</p><div id="opt-matcha"></div></div>
+      <div class="card"><h2>เมล็ดกาแฟที่ลูกค้าเลือก</h2><p class="sub">${monthsText} · นับแก้วที่คีย์ตัวเลือกเมล็ดใน POS (หน้าร้าน + บิล Grab) แล้วแปลงเป็นเมล็ดจริงตามช่วงที่ใช้ · % = ส่วนของแก้วทั้งหมดในช่วงที่เลือก (เมล็ดที่ขายแค่บางวันจะได้ % น้อย)</p><div id="opt-bean"></div></div>
+      <div class="card"><h2>มัทฉะที่ลูกค้าเลือก</h2><p class="sub">${monthsText} · นับเฉพาะแก้วที่คีย์ตัวเลือกมัทฉะใน POS</p><div id="opt-matcha"></div></div>
     </div>
+    <div class="card" style="margin-top:12px"><div class="rowflex"><div><h2>เมล็ดกาแฟ: ตัวไหนขายดี</h2><p class="sub">เมล็ดจริงตามช่วงที่ใช้ (ตารางเปลี่ยนเมล็ด) · ถึง ${monthLabelLong(state.month)} · เทียบกันในระดับคั่วเดียวกัน</p></div>
+      <div class="seg" id="seg-roast">${[['all', 'ทั้งหมด'], ...ROAST_ORDER.map(k => [k, ROAST[k]])].map(([k, t]) => `<button data-k="${k}" class="${state.beanLevel === k ? 'on' : ''}">${t}</button>`).join('')}</div></div>
+      <div class="scroll" id="bean-perf"></div>
+      <p class="sub" style="margin-top:8px">ช่วงที่ขาย = วันแรกถึงวันสุดท้ายที่มีแก้วของเมล็ดนี้ · % ตอนมีขาย = แก้วของเมล็ดนี้ ÷ แก้วทุกเมล็ดเฉพาะวันที่เมล็ดนี้มีขาย (ใช้เทียบเมล็ดที่ขายคนละช่วงได้ ต่างจาก % ในการ์ด "เมล็ดกาแฟที่ลูกค้าเลือก" ที่หารด้วยแก้วทั้งช่วงที่เลือก) · ต้นทุนต่อ shot = 20 ก. · ช่วงเวลาตอนนี้ประมาณจากบิลซื้อ แก้ได้ในตาราง bean_usage_periods</p></div>
     <div class="card" style="margin-top:12px"><h2>เมล็ดกาแฟและมัทฉะรายเดือน</h2><p class="sub">จำนวนแก้วต่อเดือน · ช่องว่าง = ไม่มีขาย (หรือยังไม่ได้เป็นตัวเลือกใน POS เดือนนั้น)</p><div class="scroll" id="opt-trend"></div></div>`;
   renderOptions(months);
+  $('#seg-roast').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; state.beanLevel = b.dataset.k; try { localStorage.setItem('bb-dash-roast', b.dataset.k); } catch (_) {} render(); });
   $('#seg-mr').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; state.menuRange = b.dataset.k; render(); });
   $('#seg-ms').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; state.menuSort = b.dataset.k; render(); });
   const o = baseChartOptions({ indexAxis: 'y', interaction: { mode: 'nearest', axis: 'y', intersect: false } });
@@ -757,11 +786,14 @@ function renderMenu(v) {
 function renderOptions(months) {
   for (const kind of ['bean', 'matcha']) {
     const agg = new Map();
-    for (const r of D.optionSales) {
-      if (r.kind !== kind || !months.includes(ym(r.business_date))) continue;
-      const a = agg.get(r.name) || { name: r.name, detail: r.detail, store: 0, grab: 0 };
+    const src = kind === 'bean'
+      ? D.beanSales.map(x => ({ business_date: x.date, channel: x.channel, qty: x.qty, name: x.label, detail: x.level ? ROAST[x.level] : x.detail, opt: x.opt }))
+      : D.optionSales.filter(r => r.kind === kind);
+    for (const r of src) {
+      if (!months.includes(ym(r.business_date))) continue;
+      const a = agg.get(r.name) || { name: r.name, detail: r.detail, store: 0, grab: 0, opts: new Set() };
       if (r.channel === 'grab') a.grab += num(r.qty); else a.store += num(r.qty);
-      if (r.detail) a.detail = r.detail; agg.set(r.name, a);
+      if (r.detail) a.detail = r.detail; if (r.opt) a.opts.add(r.opt); agg.set(r.name, a);
     }
     const rows = [...agg.values()].sort((a, b) => (b.store + b.grab) - (a.store + a.grab));
     const total = rows.reduce((t, r) => t + r.store + r.grab, 0);
@@ -770,7 +802,7 @@ function renderOptions(months) {
     const max = Math.max(...rows.map(r => r.store + r.grab));
     el.innerHTML = `${legend([[css(CHC.walk), 'หน้าร้าน', 1], [css(CHC.grab), CH.grab, 1, 1]])}<div class="bars">` + rows.map(r => {
       const tot = r.store + r.grab;
-      return `<div class="barrow" tabindex="0" data-tip="${esc(`<strong>${nf0.format(tot)} แก้ว</strong> (${pct(tot / total)})<br>หน้าร้าน ${nf0.format(r.store)} · Grab ${nf0.format(r.grab)}`)}">
+      return `<div class="barrow" tabindex="0" data-tip="${esc(`<strong>${nf0.format(tot)} แก้ว</strong> (${pct(tot / total)})<br>หน้าร้าน ${nf0.format(r.store)} · Grab ${nf0.format(r.grab)}${r.opts.size ? `<br><span style="color:var(--text-muted)">POS: ${[...r.opts].join(', ')}</span>` : ''}`)}">
         <div class="bl">${esc(r.name)}${r.detail ? ` <span class="tag">${esc(r.detail)}</span>` : ''}</div>
         <div class="bt"><span style="width:${r.store / max * 100}%;background:var(${CHC.walk})"></span><span style="width:${r.grab / max * 100}%;background:var(${CHC.grab})"></span></div>
         <div class="bv num">${nf0.format(tot)} <small>${pct(tot / total)}</small></div></div>`;
@@ -781,14 +813,58 @@ function renderOptions(months) {
   // monthly trend table
   const allMonths = D.months.filter(x => x <= state.month);
   const names = { bean: new Map(), matcha: new Map() };
-  for (const r of D.optionSales) { if (!allMonths.includes(ym(r.business_date))) continue; const mm = names[r.kind]; const k = r.name; const o = mm.get(k) || {}; o[ym(r.business_date)] = (o[ym(r.business_date)] || 0) + num(r.qty); mm.set(k, o); }
+  const lvlOf = new Map();
+  for (const r of D.optionSales) { if (r.kind !== 'matcha' || !allMonths.includes(ym(r.business_date))) continue; const mm = names.matcha; const o = mm.get(r.name) || {}; o[ym(r.business_date)] = (o[ym(r.business_date)] || 0) + num(r.qty); mm.set(r.name, o); }
+  for (const x of D.beanSales) { if (!allMonths.includes(ym(x.date))) continue; const o = names.bean.get(x.label) || {}; o[ym(x.date)] = (o[ym(x.date)] || 0) + x.qty; names.bean.set(x.label, o); lvlOf.set(x.label, x.level); }
   let h = `<table class="num"><thead><tr><th>ตัวเลือก</th>${allMonths.map(x => `<th class="r">${monthLabel(x)}</th>`).join('')}</tr></thead><tbody>`;
   for (const [kind, title] of [['bean', 'เมล็ดกาแฟ'], ['matcha', 'มัทฉะ']]) {
     h += `<tr><td colspan="${allMonths.length + 1}" style="font-weight:500;color:var(--text-secondary)">${title}</td></tr>`;
     const rows = [...names[kind].entries()].sort((a, b) => Object.values(b[1]).reduce((x, y) => x + y, 0) - Object.values(a[1]).reduce((x, y) => x + y, 0));
-    for (const [n, o] of rows) h += `<tr><td>${esc(n)}</td>${allMonths.map(x => `<td class="r">${o[x] ? nf0.format(o[x]) : ''}</td>`).join('')}</tr>`;
+    const groups = kind === 'bean' ? [...ROAST_ORDER, null] : ['_'];
+    for (const g of groups) {
+      const gr = rows.filter(([n]) => kind !== 'bean' || (lvlOf.get(n) || null) === g);
+      if (!gr.length) continue;
+      if (kind === 'bean') h += `<tr><td colspan="${allMonths.length + 1}" style="color:var(--text-muted);font-size:12.5px">&nbsp;&nbsp;${g ? ROAST[g] : 'ไม่ทราบระดับคั่ว'}</td></tr>`;
+      for (const [n, o] of gr) h += `<tr><td>${esc(n)}</td>${allMonths.map(x => `<td class="r">${o[x] ? nf0.format(o[x]) : ''}</td>`).join('')}</tr>`;
+    }
   }
   $('#opt-trend').innerHTML = h + '</tbody></table>';
+  renderBeanPerf();
+}
+
+function renderBeanPerf() {
+  const el = $('#bean-perf'); if (!el) return;
+  if (!D.beanPeriods.length) { el.innerHTML = '<p class="sub">ยังไม่มีตารางเปลี่ยนเมล็ด (bean_usage_periods) — จึงยังแยกเมล็ดจริงไม่ได้</p>'; return; }
+  const S = D.beanSales.filter(x => ym(x.date) <= state.month);
+  const openDays = D.daily.filter(r => num(r.store_bills) > 0 || num(r.grab_orders) > 0).map(r => r.business_date);
+  const cupsByDay = {}; S.forEach(x => { cupsByDay[x.date] = (cupsByDay[x.date] || 0) + x.qty; });
+  const win = new Map();   // period -> first/last sale credited to it
+  S.forEach(x => { if (!x.p) return; const w = win.get(x.p) || { a: x.date, b: x.date }; if (x.date < w.a) w.a = x.date; if (x.date > w.b) w.b = x.date; win.set(x.p, w); });
+  const beans = new Map(), key = p => p.roast_level + '|' + beanLabel(p);
+  for (const [p, w] of win) {
+    const b = beans.get(key(p)) || { p, level: p.roast_level, days: new Set(), wins: [], cups: 0, cost: 0, opts: new Set() };
+    openDays.forEach(d => { if (d >= w.a && d <= w.b) b.days.add(d); }); b.wins.push(w); beans.set(key(p), b);
+  }
+  S.forEach(x => { if (!x.p) return; const b = beans.get(key(x.p)); b.cups += x.qty; b.cost += x.qty * num(x.p.cost_per_g); b.opts.add(x.opt); });
+  const dm = d => `${+d.slice(8)}/${+d.slice(5, 7)}`;
+  const unknown = S.filter(x => !x.p), lv = state.beanLevel;
+  let h = `<table class="num"><thead><tr><th>เมล็ด</th><th>ช่วงที่ขาย</th><th class="r">วันเปิด</th><th class="r">แก้ว</th><th class="r">แก้ว/วัน</th><th class="r">% ตอนมีขาย</th><th class="r">ต้นทุน/shot</th></tr></thead><tbody>`;
+  for (const g of ROAST_ORDER) {
+    if (lv !== 'all' && lv !== g) continue;
+    const rows = [...beans.values()].filter(b => b.level === g).map(b => { const all = [...b.days].reduce((t, d) => t + (cupsByDay[d] || 0), 0); return Object.assign(b, { perDay: b.days.size ? b.cups / b.days.size : 0, share: all ? b.cups / all : null }); })
+      .sort((a, b) => b.perDay - a.perDay);
+    if (!rows.length) continue;
+    h += `<tr class="grp"><td colspan="7" style="font-weight:500;color:var(--text-secondary)">${ROAST[g]}</td></tr>`;
+    for (const b of rows) h += `<tr><td>${esc(b.p.bean_name)}${b.p.roaster ? ` <span class="tag">${esc(b.p.roaster)}</span>` : ''}${b.p.pos_option ? '' : ''}</td>`
+      + `<td style="white-space:nowrap">${b.wins.sort((x, y) => x.a < y.a ? -1 : 1).map(w => `${dm(w.a)}–${dm(w.b)}`).join(', ')}</td>`
+      + `<td class="r">${b.days.size}</td><td class="r">${nf0.format(b.cups)}</td><td class="r">${nf1.format(b.perDay)}</td><td class="r">${pct(b.share)}</td><td class="r">${b.cups ? nf1.format(b.cost / b.cups * 20) : '–'}</td></tr>`;
+  }
+  if (unknown.length && lv === 'all') {
+    const by = {}; unknown.forEach(x => { by[x.opt] = (by[x.opt] || 0) + x.qty; });
+    h += `<tr class="grp"><td colspan="7" style="font-weight:500;color:var(--text-secondary)">ยังไม่รู้ว่าเป็นเมล็ดไหน</td></tr>`
+      + Object.entries(by).map(([o, q]) => `<tr><td>POS: ${esc(o)}</td><td colspan="2" style="color:var(--text-muted)">ยังไม่ได้ผูกกับเมล็ด</td><td class="r">${nf0.format(q)}</td><td colspan="3"></td></tr>`).join('');
+  }
+  el.innerHTML = h + '</tbody></table>';
 }
 
 // ---------- P&L ----------
