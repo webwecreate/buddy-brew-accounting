@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Buddy Brew Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --brand: #AC1C1A; --brand-ink: #ffffff; --cream: #F5F0EA;
+    --surface-0: #F5F0EA; --surface-1: #fcfcfb; --surface-2: #efe9e1;
+    --text-primary: #1d1b19; --text-secondary: #55524d; --text-muted: #85817a;
+    --border: #e4ddd3; --grid: #ece7df;
+    --series-1: #2a78d6; --series-2: #eb6834;
+    --seq-0: #f3efe9; --seq-1: #cde2fb; --seq-2: #9ec5f4; --seq-3: #6da7ec; --seq-4: #3987e5; --seq-5: #256abf; --seq-6: #184f95;
+    --good: #0b7d0b; --critical: #c23030; --warn-bg: #fff4dc; --warn-ink: #7a5200;
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --brand: #d8433f; --surface-0: #141312; --surface-1: #1d1c1a; --surface-2: #272522;
+      --text-primary: #f0efec; --text-secondary: #c3c2b7; --text-muted: #8f8d86;
+      --border: #34322e; --grid: #2a2926;
+      --series-1: #3987e5; --series-2: #d95926;
+      --seq-0: #22211f; --seq-1: #104281; --seq-2: #184f95; --seq-3: #1c5cab; --seq-4: #2a78d6; --seq-5: #5598e7; --seq-6: #9ec5f4;
+      --good: #3fbf3f; --critical: #e66767; --warn-bg: #3a2f14; --warn-ink: #f5d48a;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --brand: #d8433f; --surface-0: #141312; --surface-1: #1d1c1a; --surface-2: #272522;
+    --text-primary: #f0efec; --text-secondary: #c3c2b7; --text-muted: #8f8d86;
+    --border: #34322e; --grid: #2a2926;
+    --series-1: #3987e5; --series-2: #d95926;
+    --seq-0: #22211f; --seq-1: #104281; --seq-2: #184f95; --seq-3: #1c5cab; --seq-4: #2a78d6; --seq-5: #5598e7; --seq-6: #9ec5f4;
+    --good: #3fbf3f; --critical: #e66767; --warn-bg: #3a2f14; --warn-ink: #f5d48a;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { max-width: 100%; overflow-x: hidden; }
+  body { margin: 0; background: var(--surface-0); color: var(--text-primary); font-family: "Kanit", -apple-system, "Segoe UI", sans-serif; font-weight: 300; font-size: 15px; line-height: 1.5; }
+  button, select, input { font-family: inherit; font-size: 14px; color: var(--text-primary); }
+  button { cursor: pointer; }
+  .num { font-variant-numeric: tabular-nums; }
+  /* header */
+  header { position: sticky; top: 0; z-index: 20; background: var(--brand); color: var(--brand-ink); }
+  .hbar { max-width: 1240px; margin: 0 auto; padding: 10px 16px; display: flex; align-items: center; gap: 12px; }
+  .logo { font-weight: 600; font-size: 18px; letter-spacing: .3px; white-space: nowrap; }
+  .logo small { font-weight: 300; opacity: .85; font-size: 13px; margin-left: 6px; }
+  .hbar .spacer { flex: 1; }
+  .hbar select { background: rgba(255,255,255,.14); color: #fff; border: 1px solid rgba(255,255,255,.35); border-radius: 10px; padding: 6px 10px; }
+  .hbar select option { color: #1d1b19; }
+  .hbar a, .hbar .linkbtn { color: #fff; text-decoration: none; font-size: 13px; opacity: .9; background: none; border: 0; padding: 4px; white-space: nowrap; }
+  nav.tabs { max-width: 1240px; margin: 0 auto; padding: 0 12px; display: flex; gap: 4px; }
+  nav.tabs button { background: none; border: 0; color: rgba(255,255,255,.8); padding: 8px 14px 10px; font-size: 15px; border-bottom: 3px solid transparent; }
+  nav.tabs button.active { color: #fff; border-bottom-color: #fff; font-weight: 500; }
+  main { max-width: 1240px; margin: 0 auto; padding: 16px 16px 96px; }
+  .fresh { font-size: 12.5px; color: var(--text-muted); margin: 0 0 12px; }
+  .warn { background: var(--warn-bg); color: var(--warn-ink); border-radius: 10px; padding: 8px 12px; font-size: 13px; margin-bottom: 12px; }
+  h2 { font-size: 17px; font-weight: 500; margin: 0 0 4px; }
+  h3 { font-size: 15px; font-weight: 500; margin: 0 0 2px; }
+  .sub { font-size: 12.5px; color: var(--text-muted); margin: 0 0 10px; }
+  .grid { display: grid; gap: 12px; }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 12px; }
+  .two { grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 760px) { .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } .two { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; min-width: 0; }
+  .kpi .label { font-size: 13px; color: var(--text-secondary); }
+  .kpi .value { font-size: 24px; font-weight: 500; line-height: 1.25; margin-top: 2px; }
+  .kpi .delta { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
+  .delta .up { color: var(--good); } .delta .down { color: var(--critical); }
+  .neg { color: var(--critical); }
+  .progress { height: 10px; border-radius: 6px; background: var(--surface-2); overflow: hidden; margin: 10px 0 6px; position: relative; }
+  .progress > span { position: absolute; left: 0; top: 0; bottom: 0; background: var(--series-1); border-radius: 6px; }
+  .progress > i { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--text-primary); }
+  .chart-box { position: relative; height: 260px; }
+  .chart-box.tall { height: 320px; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--text-secondary); margin: 2px 0 8px; }
+  .legend span::before { content: ""; display: inline-block; width: 14px; height: 3px; border-radius: 2px; background: var(--c); vertical-align: middle; margin-right: 6px; }
+  .legend .sq::before { width: 10px; height: 10px; border-radius: 3px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { font-weight: 500; color: var(--text-secondary); font-size: 12.5px; position: sticky; top: 0; background: var(--surface-1); }
+  td.r, th.r { text-align: right; }
+  .scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .scroll.maxh { max-height: 460px; overflow-y: auto; }
+  .tag { display: inline-block; font-size: 11.5px; padding: 0 7px; border-radius: 8px; background: var(--surface-2); color: var(--text-secondary); }
+  .seg { display: inline-flex; background: var(--surface-2); border-radius: 10px; padding: 3px; gap: 2px; }
+  .seg button { border: 0; background: none; padding: 5px 12px; border-radius: 8px; font-size: 13px; color: var(--text-secondary); }
+  .seg button.on { background: var(--surface-1); color: var(--text-primary); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  .rowflex { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .lines div { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px dashed var(--border); font-size: 14px; }
+  .lines div:last-child { border-bottom: 0; }
+  .lines .total { font-weight: 500; border-top: 1px solid var(--text-muted); border-bottom: 0; margin-top: 4px; }
+  /* heatmap */
+  .heat { display: grid; gap: 2px; font-size: 11px; }
+  .heat .h { color: var(--text-muted); text-align: center; }
+  .heat .d { color: var(--text-secondary); padding-right: 4px; display: flex; align-items: center; }
+  .heat .c { height: 26px; border-radius: 4px; background: var(--seq-0); outline: none; }
+  .heat .c:hover, .heat .c:focus { box-shadow: 0 0 0 2px var(--text-primary); }
+  .scale { display: flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--text-muted); margin-top: 8px; }
+  .scale i { width: 22px; height: 10px; border-radius: 3px; display: inline-block; }
+  #tip { position: fixed; z-index: 50; pointer-events: none; background: var(--surface-1); color: var(--text-primary); border: 1px solid var(--border); border-radius: 10px; padding: 7px 10px; font-size: 12.5px; box-shadow: 0 4px 14px rgba(0,0,0,.15); display: none; max-width: 240px; }
+  #tip strong { font-weight: 500; }
+  /* login */
+  #login { max-width: 380px; margin: 12vh auto; padding: 0 16px; }
+  #login .card { padding: 22px; }
+  #login input { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-1); margin-bottom: 10px; }
+  .btn { background: var(--brand); color: #fff; border: 0; border-radius: 10px; padding: 10px 16px; font-weight: 500; width: 100%; }
+  .err { color: var(--critical); font-size: 13px; margin-top: 8px; }
+  .loading { text-align: center; color: var(--text-muted); padding: 40px 0; }
+  /* mobile: tabs move to a bottom bar */
+  @media (max-width: 759px) {
+    .logo small { display: none; }
+    nav.tabs { position: fixed; left: 0; right: 0; bottom: 0; background: var(--surface-1); border-top: 1px solid var(--border); padding: 4px 4px calc(4px + env(safe-area-inset-bottom)); max-width: none; justify-content: space-around; }
+    nav.tabs button { color: var(--text-muted); border-bottom: 0; border-top: 3px solid transparent; padding: 8px 6px; font-size: 14px; flex: 1; }
+    nav.tabs button.active { color: var(--brand); border-top-color: var(--brand); }
+    .kpi .value { font-size: 20px; }
+    .hbar a.back { display: none; }
+  }
+  /* simple bar list (beans / matcha) */
+  .barrow { display: grid; grid-template-columns: minmax(90px, 38%) 1fr auto; gap: 8px; align-items: center; padding: 5px 0; font-size: 13.5px; }
+  .barrow .bt { display: flex; gap: 2px; height: 12px; }
+  .barrow .bt span { display: block; height: 100%; border-radius: 0 4px 4px 0; min-width: 0; }
+  .barrow .bt span:first-child { border-radius: 4px 0 0 4px; }
+  .barrow .bv small { color: var(--text-muted); font-size: 11.5px; margin-left: 4px; }
+  .barrow:hover, .barrow:focus { background: var(--surface-2); outline: none; border-radius: 6px; }
+  /* P&L table */
+  table.pnl td:first-child, table.pnl th:first-child { position: sticky; left: 0; background: var(--surface-1); z-index: 1; white-space: nowrap; }
+  table.pnl tr.grp td { font-weight: 500; color: var(--text-secondary); padding-top: 14px; border-bottom: 0; }
+  table.pnl tr.sum td { font-weight: 500; border-top: 1px solid var(--text-muted); }
+  table.pnl tr.total td { font-size: 14.5px; }
+  table.pnl tr.memo td { color: var(--text-secondary); font-style: italic; }
+  table .sel { background: var(--surface-2) !important; }
+  tr.sum td { font-weight: 500; }
+  /* drill-down */
+  details { border-top: 1px solid var(--border); }
+  details summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; gap: 10px; padding: 9px 2px; font-size: 14px; }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::before { content: "▸"; color: var(--text-muted); margin-right: 6px; transition: transform .15s; display: inline-block; }
+  details[open] summary::before { transform: rotate(90deg); }
+  details summary .l { flex: 1; }
+  details .scroll { margin-bottom: 10px; }
+  a.more { font-size: 12.5px; color: var(--series-1); text-decoration: none; }
+  @media (forced-colors: active) { .progress > span, .heat .c { forced-color-adjust: none; } }
+</style>
+</head>
+<body>
+<div id="login" hidden>
+  <div class="card">
+    <h2>Buddy Brew Dashboard</h2>
+    <p class="sub">เข้าสู่ระบบด้วยบัญชีเดียวกับเว็บบัญชี</p>
+    <form id="login-form">
+      <input id="email" type="email" placeholder="อีเมล" autocomplete="username" required>
+      <input id="password" type="password" placeholder="รหัสผ่าน" autocomplete="current-password" required>
+      <button class="btn" type="submit">เข้าสู่ระบบ</button>
+      <div class="err" id="login-err" hidden></div>
+    </form>
+  </div>
+</div>
+
+<div id="app" hidden>
+  <header>
+    <div class="hbar">
+      <div class="logo">Buddy Brew<small>ภาพรวมร้าน</small></div>
+      <div class="spacer"></div>
+      <select id="month" aria-label="เลือกเดือน"></select>
+      <a class="back" href="accounting.html">หลังบ้าน</a>
+      <button class="linkbtn" id="logout">ออก</button>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button data-tab="overview" class="active">ภาพรวม</button>
+      <button data-tab="sales">ยอดขาย</button>
+      <button data-tab="menu">เมนู</button>
+      <button data-tab="pnl">งบกำไร</button>
+      <button data-tab="balance">งบดุล</button>
+    </nav>
+  </header>
+  <main>
+    <p class="fresh" id="fresh"></p>
+    <div id="view" class="loading">กำลังโหลดข้อมูล…</div>
+  </main>
+</div>
+<div id="tip" role="tooltip"></div>
+
+<script>
+'use strict';
+const SUPABASE_URL = 'https://xsokynhtoxktazlomsnx.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_r-BdEYs8q61oSQKv_qJpPw_Xh5BPgRa';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Local preview only: ?mock=<json file> is honoured on localhost, never on the published site.
+const IS_LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);
+const MOCK_URL = IS_LOCAL ? new URLSearchParams(location.search).get('mock') : null;
+
+const TH_MONTH = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+const TH_DAY = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
+const D = {};            // loaded data
+let state = { tab: 'overview', month: null, salesRange: 3, menuRange: 'month', menuSort: 'profit' };
+let charts = [];
+
+// ---------- helpers ----------
+const $ = (s, el = document) => el.querySelector(s);
+const nf0 = new Intl.NumberFormat('th-TH', { maximumFractionDigits: 0 });
+const nf1 = new Intl.NumberFormat('th-TH', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const nf2 = new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const baht = n => nf0.format(Math.round(n || 0));
+const pct = n => (n == null || !isFinite(n)) ? '–' : nf0.format(Math.round(n * 100)) + '%';
+const num = v => Number(v) || 0;
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function ym(dateStr) { return dateStr.slice(0, 7); }
+function monthLabel(m) { const [y, mm] = m.split('-').map(Number); return `${TH_MONTH[mm - 1]} ${String(y + 543).slice(2)}`; }
+function monthLabelLong(m) { const [y, mm] = m.split('-').map(Number); return `${TH_MONTH[mm - 1]} ${y + 543}`; }
+function addMonths(m, k) { let [y, mm] = m.split('-').map(Number); mm += k; while (mm < 1) { mm += 12; y--; } while (mm > 12) { mm -= 12; y++; } return `${y}-${String(mm).padStart(2, '0')}`; }
+function daysInMonth(m) { const [y, mm] = m.split('-').map(Number); return new Date(y, mm, 0).getDate(); }
+function weekday(dateStr) { const [y, m, d] = dateStr.split('-').map(Number); return new Date(y, m - 1, d).getDay(); }
+function dayLabel(dateStr) { const d = Number(dateStr.slice(8, 10)); return `${d} ${TH_DAY[weekday(dateStr)]}`; }
+function thDate(dateStr) { if (!dateStr) return '–'; return `${Number(dateStr.slice(8, 10))} ${monthLabelLong(dateStr.slice(0, 7))}`; }
+const ASSET_CAT = { equipment: 'อุปกรณ์/เครื่องใช้', decor: 'ตกแต่งร้าน', furniture: 'เฟอร์นิเจอร์', renovation: 'ปรับปรุงร้าน', electronics: 'อิเล็กทรอนิกส์' };
+function deltaHtml(cur, prev, label) {
+  if (!prev) return `<div class="delta">${label}: –</div>`;
+  const ch = (cur - prev) / Math.abs(prev);
+  return `<div class="delta">${label} <span class="${ch >= 0 ? 'up' : 'down'}">${ch >= 0 ? '▲' : '▼'} ${pct(Math.abs(ch))}</span></div>`;
+}
+
+// ---------- tooltip ----------
+const tip = $('#tip');
+function showTip(html, x, y) { tip.innerHTML = html; tip.style.display = 'block'; const w = tip.offsetWidth, h = tip.offsetHeight; tip.style.left = Math.min(window.innerWidth - w - 8, x + 12) + 'px'; tip.style.top = Math.max(8, y - h - 12) + 'px'; }
+function hideTip() { tip.style.display = 'none'; }
+
+// ---------- data ----------
+async function fetchAll(table, select = '*', order) {
+  if (D.__mock) return D.__mock[table] || [];
+  const out = []; const step = 1000;
+  for (let from = 0; ; from += step) {
+    let q = sb.from(table).select(select).range(from, from + step - 1);
+    if (order) q = q.order(order);
+    const { data, error } = await q;
+    if (error) throw new Error(`${table}: ${error.message}`);
+    out.push(...data);
+    if (data.length < step) break;
+  }
+  return out;
+}
+
+async function loadData() {
+  if (MOCK_URL) D.__mock = await (await fetch(MOCK_URL)).json();
+  const [daily, hourly, menuSales, optionSales, fixedItems, closures, expenseItems, categories, menuCosts, expenses, assets, liabilities, accounts, targets, balances, ownerEntries] = await Promise.all([
+    fetchAll('v_sales_daily', '*', 'business_date'),
+    fetchAll('v_sales_hourly', '*'),
+    fetchAll('v_menu_sales', '*'),
+    fetchAll('v_option_sales', '*'),
+    fetchAll('fixed_cost_items', '*'),
+    fetchAll('shop_closures', '*'),
+    fetchAll('expense_items', 'expense_id,line_total,category_id'),
+    fetchAll('expense_categories', 'id,key,label_th,group_key,sort_order'),
+    fetchAll('menu_costs', '*'),
+    fetchAll('expenses', 'id,expense_date,amount,payment_account_id'),
+    fetchAll('assets', 'id,name,category,purchase_price,purchase_date,useful_life_months,status,disposed_date'),
+    fetchAll('liabilities', 'id,creditor_type,creditor_name,original_amount,paid_amount,status'),
+    fetchAll('payment_accounts', 'id,key,label_th,sort_order,active'),
+    fetchAll('monthly_targets', '*'),
+    fetchAll('account_balances', '*'),
+    fetchAll('owner_account_entries', '*'),
+  ]);
+  Object.assign(D, { daily, hourly, menuSales, optionSales, fixedItems, closures, expenseItems, categories, menuCosts, expenses, assets, liabilities, accounts, targets, balances, ownerEntries });
+  D.closureMap = Object.fromEntries(D.closures.map(c => [c.closed_date, c.reason || 'หยุดพิเศษ']));
+  D.catById = Object.fromEntries(D.categories.map(c => [c.id, c]));
+  D.itemsByExpense = new Map();
+  for (const it of D.expenseItems) { const a = D.itemsByExpense.get(it.expense_id) || []; a.push(it); D.itemsByExpense.set(it.expense_id, a); }
+  D.daily.sort((a, b) => a.business_date.localeCompare(b.business_date));
+  D.lastSale = D.daily.length ? D.daily[D.daily.length - 1].business_date : null;
+  D.lastExpense = D.expenses.reduce((m, e) => e.expense_date > m ? e.expense_date : m, '');
+  D.months = [...new Set(D.daily.map(r => ym(r.business_date)))].sort();
+  D.costIndex = buildCostIndex(D.menuCosts);
+}
+
+// ---------- menu cost matching ----------
+function normName(s) {
+  let n = String(s || '').toLowerCase().replace(/\(ปัจจุบัน[^)]*\)/g, '').replace(/\s+/g, ' ').trim();
+  let temp = null;
+  if (/^hot /.test(n)) { temp = 'hot'; n = n.slice(4); }
+  const m = n.match(/\s*\((iced|hot)\)$/); if (m) { temp = m[1]; n = n.slice(0, m.index); }
+  return { n: n.replace(/-/g, '').replace(/\s+/g, ' ').trim(), temp };
+}
+function buildCostIndex(rows) {
+  const idx = new Map();
+  for (const r of rows) {
+    const { n } = normName(r.menu_name);
+    if (!idx.has(n)) idx.set(n, {});
+    idx.get(n)[r.temp || 'any'] = r;
+  }
+  return idx;
+}
+function costFor(menuName, temp) {
+  const { n, temp: t2 } = normName(menuName);
+  const e = D.costIndex.get(n); if (!e) return null;
+  const t = temp || t2;
+  return (t && e[t]) || e.iced || e.any || e.hot || null;
+}
+
+// ---------- calculations ----------
+function monthDays(m) { return D.daily.filter(r => ym(r.business_date) === m); }
+function salesOfMonth(m) {
+  const rows = monthDays(m);
+  const s = { store: 0, grab: 0, grabApp: 0, cups: 0, storeCups: 0, grabCups: 0, grabOrders: 0, bills: 0, gov: 0, openDays: 0, free: 0 };
+  for (const r of rows) {
+    s.store += num(r.store_net); s.grab += num(r.grab_net); s.grabApp += num(r.grab_app_amount);
+    s.storeCups += num(r.store_cups); s.grabCups += num(r.grab_pos_cups); s.grabOrders += num(r.grab_orders);
+    s.bills += num(r.store_bills); s.gov += num(r.gov_net); s.free += num(r.free_cups);
+    if (num(r.store_bills) > 0 || num(r.grab_orders) > 0) s.openDays++;
+  }
+  s.total = s.store + s.grab; s.cups = s.storeCups + s.grabCups;
+  return s;
+}
+function monthIndex(dStr) { const [y, m] = dStr.split('-').map(Number); return y * 12 + (m - 1); }
+function depreciationOfMonth(m) {
+  // straight line, whole months (same rule as accounting.html assetDepreciation)
+  const mi = monthIndex(m + '-01');
+  let total = 0;
+  for (const a of D.assets) {
+    const life = num(a.useful_life_months); if (!(life > 0)) continue;
+    const start = monthIndex(a.purchase_date);
+    const endIdx = a.status === 'disposed' && a.disposed_date ? monthIndex(a.disposed_date) : Infinity;
+    if (mi >= start && mi < start + life && mi < endIdx) total += num(a.purchase_price) / life;
+  }
+  return total;
+}
+function assetValue(a, asOf) {
+  const life = num(a.useful_life_months), price = num(a.purchase_price);
+  if (!(life > 0)) return { acc: 0, book: price };
+  const el = Math.max(0, Math.min(life, monthIndex(asOf) - monthIndex(a.purchase_date)));
+  const acc = price / life * el; return { acc, book: price - acc };
+}
+// weekly closed day: Monday until Jul 2026, Friday from Aug 2026 (Reporting-Direction §4)
+function weeklyClosed(dateStr) { return dateStr >= '2026-08-01' ? 5 : 1; }
+function closedReason(dateStr) {
+  if (D.closureMap[dateStr]) return D.closureMap[dateStr];
+  return weekday(dateStr) === weeklyClosed(dateStr) ? `หยุดประจำ (${TH_DAY[weeklyClosed(dateStr)]})` : null;
+}
+function planDays(m, t) {
+  if (t && t.open_days_plan) return num(t.open_days_plan);
+  let n = 0; for (let d = 1; d <= daysInMonth(m); d++) { if (!closedReason(`${m}-${String(d).padStart(2, '0')}`)) n++; }
+  return n;
+}
+function fixedPlanned(m) {
+  const start = m + '-01';
+  return D.fixedItems.filter(f => f.valid_from <= start && (!f.valid_to || f.valid_to >= start)).sort((a, b) => a.sort_order - b.sort_order);
+}
+// expenses of a month split by category key ('_none' = no category / not itemised)
+function expenseByCat(m) {
+  const out = {};
+  for (const e of D.expenses) {
+    if (ym(e.expense_date) !== m) continue;
+    const items = D.itemsByExpense.get(e.id) || []; let sum = 0;
+    for (const it of items) { const k = D.catById[it.category_id]?.key || '_none'; out[k] = (out[k] || 0) + num(it.line_total); sum += num(it.line_total); }
+    const rest = num(e.amount) - sum; if (Math.abs(rest) > 0.5) out._none = (out._none || 0) + rest;
+  }
+  return out;
+}
+function pnlOfMonth(m) {
+  const s = salesOfMonth(m), cats = expenseByCat(m);
+  const groupOf = k => k === '_none' ? 'other' : (D.categories.find(c => c.key === k)?.group_key || 'other');
+  let variable = 0, opex = 0; for (const [k, v] of Object.entries(cats)) { if (groupOf(k) === 'variable') variable += v; else opex += v; }
+  const dep = depreciationOfMonth(m), gross = s.total - variable;
+  return { s, cats, variable, opex, dep, gross, net: gross - opex - dep };
+}
+function grossRatio(m) {
+  // actual gross margin of the last 3 complete months up to m (trial month May 2026 and the month still in progress excluded)
+  const partial = D.lastSale && D.lastSale.slice(8, 10) !== String(daysInMonth(ym(D.lastSale))) ? ym(D.lastSale) : null;
+  const ms = D.months.filter(x => x <= m && x !== '2026-05' && x !== partial).slice(-3);
+  let rev = 0, gross = 0; for (const x of ms) { const p = pnlOfMonth(x); rev += p.s.total; gross += p.gross; }
+  return { ratio: rev > 0 ? gross / rev : null, months: ms };
+}
+function opexOfMonth(m) { return D.expenses.filter(e => ym(e.expense_date) === m).reduce((t, e) => t + num(e.amount), 0); }
+function targetFor(m) {
+  const rows = D.targets.filter(t => t.month.slice(0, 7) <= m).sort((a, b) => b.month.localeCompare(a.month));
+  return rows[0] || null;
+}
+function contribution(months) {
+  // weighted profit ratio of matched drinks (store: dine-in profit, Grab bills: take-away profit)
+  let price = 0, profit = 0, cups = 0;
+  for (const r of D.menuSales) {
+    if (!months.includes(ym(r.business_date))) continue;
+    const c = costFor(r.menu_name, r.temp); if (!c) continue;
+    const q = num(r.qty);
+    price += q * num(c.price_expected);
+    profit += q * num(r.channel === 'grab' ? c.profit_takeaway : c.profit_dinein);
+    cups += q;
+  }
+  return { ratio: price ? profit / price : null, perCup: cups ? profit / cups : null, cups };
+}
+
+// ---------- rendering ----------
+function destroyCharts() { charts.forEach(c => c.destroy()); charts = []; }
+function baseChartOptions(extra = {}) {
+  const ink = css('--text-secondary'), grid = css('--grid');
+  return Object.assign({
+    responsive: true, maintainAspectRatio: false, animation: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: { backgroundColor: css('--surface-1'), titleColor: css('--text-primary'), bodyColor: css('--text-primary'), borderColor: css('--border'), borderWidth: 1, padding: 10, titleFont: { family: 'Kanit', weight: '500' }, bodyFont: { family: 'Kanit' }, boxWidth: 12, boxHeight: 3, usePointStyle: false },
+    },
+    scales: {
+      x: { grid: { display: false }, ticks: { color: ink, font: { family: 'Kanit', size: 11 }, maxRotation: 0, autoSkipPadding: 8 }, border: { color: grid } },
+      y: { grid: { color: grid }, ticks: { color: ink, font: { family: 'Kanit', size: 11 }, callback: v => nf0.format(v) }, border: { display: false }, beginAtZero: true },
+    },
+  }, extra);
+}
+function legend(items) { return `<div class="legend">${items.map(([c, t, sq]) => `<span class="${sq ? 'sq' : ''}" style="--c:${c}">${esc(t)}</span>`).join('')}</div>`; }
+
+function render() {
+  destroyCharts(); hideTip();
+  document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === state.tab));
+  const fresh = [`ยอดขายถึง ${thDate(D.lastSale)}`, `รายจ่ายบันทึกถึง ${thDate(D.lastExpense)}`];
+  $('#fresh').textContent = fresh.join(' · ') + ' — นำเข้ายอดขายจาก POS/Grab ตอนปิดเดือน';
+  const v = $('#view'); v.className = '';
+  ({ overview: renderOverview, sales: renderSales, menu: renderMenu, pnl: renderPnl, balance: renderBalance })[state.tab](v);
+  window.scrollTo({ top: 0 });
+}
+
+// ---------- overview ----------
+function renderOverview(v) {
+  const m = state.month, s = salesOfMonth(m), p = salesOfMonth(addMonths(m, -1));
+  const opex = opexOfMonth(m), dep = depreciationOfMonth(m), profit = s.total - opex - dep;
+  const t = targetFor(m), con = contribution([m, addMonths(m, -1), addMonths(m, -2)]);
+  const isCurrent = m === ym(D.lastSale || '');
+  const daysPlan = planDays(m, t);
+  const gr = grossRatio(m);
+  const fixedItemsSum = fixedPlanned(m).reduce((a, f) => a + num(f.monthly_amount), 0);
+  const fixedM = t && t.fixed_cost != null ? num(t.fixed_cost) : fixedItemsSum + depreciationOfMonth(m);
+  const salaryT = t ? num(t.owner_salary_target) : 0;
+  const perDay = s.openDays ? s.total / s.openDays : 0;
+  const projected = perDay * daysPlan;
+  const breakEven = gr.ratio > 0 ? fixedM / gr.ratio : null;
+  const goal = t && t.sales_target ? num(t.sales_target) : (gr.ratio > 0 ? (fixedM + salaryT) / gr.ratio : null);
+  const expenseLag = D.lastExpense && D.lastExpense < (D.lastSale || '') && D.lastExpense.slice(0, 7) <= m;
+
+  let goalHtml = '<p class="sub">ยังไม่ได้ตั้งเป้าหมายของเดือนนี้ (ตาราง monthly_targets)</p>';
+  if (goal) {
+    const base = isCurrent ? projected : s.total, w = Math.min(100, base / goal * 100);
+    const be = breakEven ? Math.min(100, breakEven / goal * 100) : null;
+    goalHtml = `
+      <div class="rowflex"><div><h3>เป้ายอดขายเดือนนี้ ${baht(goal)} ฿</h3>
+        <p class="sub">${t && t.sales_target ? 'ตั้งเป้าไว้' : `(ต้นทุนคงที่+ค่าเสื่อม ${baht(fixedM)} + เงินเดือนเป้า ${baht(salaryT)}) ÷ กำไรขั้นต้นจริง ${pct(gr.ratio)} (${gr.months.map(monthLabel).join(', ')})`} · เป้าต่อวัน ${baht(goal / daysPlan)} ฿ · วันเปิดตามแผน ${daysPlan} วัน</p></div>
+        <div class="num" style="font-size:20px;font-weight:500">${pct(base / goal)}</div></div>
+      <div class="progress" role="img" aria-label="ความคืบหน้าเทียบเป้า"><span style="width:${w}%"></span>${be != null ? `<i style="left:${be}%" title="จุดคุ้มทุน"></i>` : ''}</div>
+      <p class="sub">${isCurrent ? `ขายแล้ว ${baht(s.total)} ฿ ใน ${s.openDays} วัน · ถ้าขายระดับนี้ทั้งเดือน ≈ ${baht(projected)} ฿` : `ขายได้ ${baht(s.total)} ฿`}${breakEven ? ` · เส้นดำ = จุดคุ้มทุน ${baht(breakEven)} ฿ (ยังไม่จ่ายเงินเดือนตัวเอง)` : ''}</p>`;
+  }
+
+  v.innerHTML = `
+    ${expenseLag ? `<div class="warn">รายจ่ายบันทึกถึง ${thDate(D.lastExpense)} เท่านั้น — กำไรของเดือนนี้จะสูงเกินจริงจนกว่าจะลงบิลซื้อครบ</div>` : ''}
+    <div class="grid kpis">
+      <div class="card kpi"><div class="label">ยอดขายรวม</div><div class="value num">${baht(s.total)} ฿</div>${isCurrent && s.openDays < daysPlan ? deltaHtml(perDay, p.openDays ? p.total / p.openDays : 0, 'ต่อวันเปิด เทียบเดือนก่อน') : deltaHtml(s.total, p.total, 'เทียบเดือนก่อน')}</div>
+      <div class="card kpi"><div class="label">แก้ว (หน้าร้าน + Grab)</div><div class="value num">${nf0.format(s.cups)}</div><div class="delta">${s.openDays ? nf1.format(s.cups / s.openDays) : '–'} แก้ว/วันเปิด</div></div>
+      <div class="card kpi"><div class="label">กำไรสุทธิ (หลังค่าเสื่อม)</div><div class="value num ${profit < 0 ? 'neg' : ''}">${baht(profit)} ฿</div><div class="delta">รายจ่าย ${baht(opex)} · ค่าเสื่อม ${baht(dep)}</div></div>
+      <div class="card kpi"><div class="label">ยอดเฉลี่ยต่อวันเปิด</div><div class="value num">${baht(perDay)} ฿</div><div class="delta">เปิด ${s.openDays} วัน${goal ? ` · เป้า ${baht(goal / daysPlan)}` : ''}</div></div>
+    </div>
+    <div class="card" style="margin-bottom:12px">${goalHtml}</div>
+    <div class="grid two">
+      <div class="card"><h2>ยอดขายรายวัน</h2><p class="sub">${monthLabelLong(m)} · หน้าร้าน (POS) และ Grab (เงินเข้าสุทธิ)</p>
+        ${legend([[css('--series-1'), 'หน้าร้าน', 1], [css('--series-2'), 'Grab', 1]].concat(goal ? [[css('--text-primary'), 'เป้าต่อวัน']] : []))}
+        <div class="chart-box"><canvas id="c-daily"></canvas></div></div>
+      <div class="card"><h2>สรุปเดือน ${monthLabelLong(m)}</h2><p class="sub">กำไร = รายรับ − รายจ่ายที่บันทึก − ค่าเสื่อม (ไม่นับการจ่ายคืนหนี้)</p>
+        <div class="lines num">
+          <div><span>หน้าร้าน (POS)</span><span>${baht(s.store)}</span></div>
+          <div><span>&nbsp;&nbsp;ในนั้นโครงการรัฐ</span><span>${baht(s.gov)}</span></div>
+          <div><span>Grab เงินเข้าสุทธิ (${nf0.format(s.grabOrders)} ออเดอร์)</span><span>${baht(s.grab)}</span></div>
+          <div class="total"><span>รายรับรวม</span><span>${baht(s.total)}</span></div>
+          <div><span>รายจ่ายที่บันทึก</span><span>−${baht(opex)}</span></div>
+          <div><span>ค่าเสื่อมทรัพย์สิน</span><span>−${baht(dep)}</span></div>
+          <div class="total"><span>กำไรสุทธิ</span><span class="${profit < 0 ? 'neg' : ''}">${baht(profit)}</span></div>
+        </div>
+        <p class="sub" style="margin-top:10px">สัดส่วน Grab ${pct(s.total ? s.grab / s.total : null)} ของรายรับ · กำไรขั้นต้นเฉลี่ย ${con.perCup ? nf1.format(con.perCup) : '–'} ฿/แก้ว (ตามสูตร 3 เดือนล่าสุด) · แก้วแจก/ทดสอบ ${nf0.format(s.free)}</p>
+      </div>
+    </div>`;
+
+  const rows = monthDays(m), byDate = Object.fromEntries(rows.map(r => [r.business_date, r]));
+  const n = daysInMonth(m), labels = [], store = [], grab = [];
+  for (let d = 1; d <= n; d++) {
+    const ds = `${m}-${String(d).padStart(2, '0')}`; const r = byDate[ds];
+    labels.push(d); store.push(r ? num(r.store_net) : null); grab.push(r ? num(r.grab_net) : null);
+  }
+  const ds = [
+    { type: 'bar', label: 'หน้าร้าน', data: store, backgroundColor: css('--series-1'), stack: 's', borderRadius: 4, borderSkipped: 'start', borderColor: css('--surface-1'), borderWidth: { top: 2 }, maxBarThickness: 18 },
+    { type: 'bar', label: 'Grab', data: grab, backgroundColor: css('--series-2'), stack: 's', borderRadius: 4, borderSkipped: 'start', borderColor: css('--surface-1'), borderWidth: { top: 2 }, maxBarThickness: 18 },
+  ];
+  if (goal) ds.push({ type: 'line', label: 'เป้าต่อวัน', data: labels.map(() => goal / daysPlan), borderColor: css('--text-primary'), borderWidth: 2, borderDash: [5, 4], pointRadius: 0, pointHoverRadius: 0 });
+  charts.push(new Chart($('#c-daily'), {
+    data: { labels, datasets: ds },
+    options: baseChartOptions({
+      scales: Object.assign(baseChartOptions().scales, { x: Object.assign(baseChartOptions().scales.x, { stacked: true }), y: Object.assign(baseChartOptions().scales.y, { stacked: true }) }),
+      plugins: Object.assign(baseChartOptions().plugins, { tooltip: Object.assign(baseChartOptions().plugins.tooltip, {
+        callbacks: { title: it => { const dstr = `${m}-${String(it[0].label).padStart(2, '0')}`; const cr = closedReason(dstr); return dayLabel(dstr) + (cr ? ` · ${cr}` : ''); }, label: c => ` ${c.dataset.label}: ${c.raw == null ? 'ไม่มียอด' : baht(c.raw) + ' ฿'}`,
+          footer: it => { const tot = it.filter(x => x.dataset.type === 'bar').reduce((t, x) => t + (x.raw || 0), 0); return `รวม ${baht(tot)} ฿`; } } }) }),
+    }),
+  }));
+}
+
+// ---------- sales ----------
+function renderSales(v) {
+  const months = D.months.filter(x => x <= state.month);
+  const last = months.slice(-state.salesRange);
+  v.innerHTML = `
+    <div class="grid two">
+      <div class="card"><h2>ยอดขายรายเดือน</h2><p class="sub">หน้าร้าน + Grab เงินเข้าสุทธิ · พ.ค. คือเดือนทดลองเปิด</p>
+        ${legend([[css('--series-1'), 'หน้าร้าน', 1], [css('--series-2'), 'Grab', 1]])}
+        <div class="chart-box"><canvas id="c-month"></canvas></div></div>
+      <div class="card"><h2>แก้วต่อวันเปิด</h2><p class="sub">หน้าร้าน + บิล Grab ใน POS ÷ วันที่มียอดขาย</p>
+        <div class="chart-box"><canvas id="c-cups"></canvas></div></div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="rowflex"><div><h2>ช่วงเวลาขายดี (หน้าร้าน)</h2><p class="sub">ยอดหน้าร้านเฉลี่ยต่อวันเปิดของแต่ละวันในสัปดาห์ · ${last.map(monthLabel).join(', ')}</p></div>
+        <div class="seg" id="seg-range">${[[1, 'เดือนนี้'], [3, '3 เดือน'], [6, '6 เดือน']].map(([k, t]) => `<button data-k="${k}" class="${state.salesRange === k ? 'on' : ''}">${t}</button>`).join('')}</div></div>
+      <div class="scroll"><div id="heat"></div></div>
+    </div>
+    <div class="grid two" style="margin-top:12px">
+      <div class="card"><h2>วันในสัปดาห์</h2><p class="sub">ยอดเฉลี่ยต่อวันเปิด · ${last.map(monthLabel).join(', ')}</p>
+        ${legend([[css('--series-1'), 'หน้าร้าน', 1], [css('--series-2'), 'Grab', 1]])}
+        <div class="chart-box"><canvas id="c-wd"></canvas></div></div>
+      <div class="card"><h2>ทดสอบเวลา Grab เสาร์–อาทิตย์</h2><p class="sub">ช่วงเช้าเสาร์–อาทิตย์ต่อวันเปิด · เริ่มทดสอบ Grab 10:30 ใน พ.ย. 2569 · ฐานเทียบ = ส.ค.–ต.ค.</p>
+        <div class="scroll" id="wk"></div></div>
+    </div>`;
+
+  $('#seg-range').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; state.salesRange = Number(b.dataset.k); render(); setTab('sales'); });
+
+  const ms = months.map(salesOfMonth);
+  const o = baseChartOptions(); o.scales.x.stacked = true; o.scales.y.stacked = true;
+  o.plugins.tooltip.callbacks = { label: c => ` ${c.dataset.label}: ${baht(c.raw)} ฿`, footer: it => `รวม ${baht(it.reduce((t, x) => t + x.raw, 0))} ฿` };
+  charts.push(new Chart($('#c-month'), { type: 'bar', data: { labels: months.map(monthLabel), datasets: [
+    { label: 'หน้าร้าน', data: ms.map(s => Math.round(s.store)), backgroundColor: css('--series-1'), borderRadius: 4, borderSkipped: 'start', borderColor: css('--surface-1'), borderWidth: { top: 2 }, maxBarThickness: 44 },
+    { label: 'Grab', data: ms.map(s => Math.round(s.grab)), backgroundColor: css('--series-2'), borderRadius: 4, borderSkipped: 'start', borderColor: css('--surface-1'), borderWidth: { top: 2 }, maxBarThickness: 44 }] }, options: o }));
+
+  const o2 = baseChartOptions(); o2.plugins.tooltip.callbacks = { label: c => ` ${nf1.format(c.raw)} แก้ว/วัน (${ms[c.dataIndex].openDays} วันเปิด)` };
+  charts.push(new Chart($('#c-cups'), { type: 'line', data: { labels: months.map(monthLabel), datasets: [
+    { label: 'แก้ว/วัน', data: ms.map(s => s.openDays ? s.cups / s.openDays : 0), borderColor: css('--series-1'), backgroundColor: css('--series-1'), borderWidth: 2, pointRadius: 4, pointHoverRadius: 6, pointBorderColor: css('--surface-1'), pointBorderWidth: 2, tension: 0 }] }, options: o2 }));
+
+  // heatmap weekday x hour (store net per open day of that weekday)
+  const hours = []; for (let h = 7; h <= 18; h++) hours.push(h);
+  const openDays = Array(7).fill(0); const cell = {};
+  for (const r of D.daily) if (last.includes(ym(r.business_date)) && (num(r.store_bills) > 0 || num(r.grab_orders) > 0)) openDays[weekday(r.business_date)]++;
+  for (const r of D.hourly) {
+    if (!last.includes(ym(r.business_date))) continue;
+    const k = weekday(r.business_date) + ':' + r.business_hour;
+    const c = cell[k] || (cell[k] = { net: 0, cups: 0, grab: 0 });
+    c.net += num(r.store_net); c.cups += num(r.store_cups); c.grab += num(r.grab_orders);
+  }
+  const order = [1, 2, 3, 4, 5, 6, 0];
+  let max = 0; for (const wd of order) for (const h of hours) { const c = cell[wd + ':' + h]; if (c && openDays[wd]) max = Math.max(max, c.net / openDays[wd]); }
+  const steps = ['--seq-1', '--seq-2', '--seq-3', '--seq-4', '--seq-5', '--seq-6'];
+  const heat = $('#heat');
+  heat.className = 'heat'; heat.style.gridTemplateColumns = `34px repeat(${hours.length}, minmax(30px, 1fr))`; heat.style.minWidth = '440px';
+  let html = '<div></div>' + hours.map(h => `<div class="h">${h}</div>`).join('');
+  for (const wd of order) {
+    html += `<div class="d">${TH_DAY[wd]}</div>`;
+    for (const h of hours) {
+      const c = cell[wd + ':' + h], n = openDays[wd];
+      const val = c && n ? c.net / n : 0;
+      const bg = !val ? 'var(--seq-0)' : `var(${steps[Math.min(5, Math.floor(val / max * 6 - 1e-9))]})`;
+      html += `<div class="c" tabindex="0" style="background:${bg}" data-t="${esc(`${TH_DAY[wd]} ${h}:00–${h}:59`)}" data-v="${val}" data-cups="${c && n ? c.cups / n : 0}" data-g="${c && n ? c.grab / n : 0}" data-n="${n}"></div>`;
+    }
+  }
+  heat.innerHTML = html + '';
+  heat.insertAdjacentHTML('afterend', `<div class="scale">น้อย ${steps.map(s => `<i style="background:var(${s})"></i>`).join('')} มาก (สูงสุด ${baht(max)} ฿/ชม.)</div>`);
+  const onCell = e => { const c = e.target.closest('.c'); if (!c) return; const r = c.getBoundingClientRect(); const x = e.clientX ?? r.left + r.width / 2, y = e.clientY ?? r.top;
+    showTip(`<strong>${baht(c.dataset.v)} ฿</strong> หน้าร้าน/วัน<br>${nf1.format(c.dataset.cups)} แก้ว · Grab ${nf1.format(c.dataset.g)} ออเดอร์/วัน<br><span style="color:var(--text-muted)">${esc(c.dataset.t)} · ${c.dataset.n} วันเปิด</span>`, x, y); };
+  heat.addEventListener('pointermove', onCell); heat.addEventListener('focusin', onCell); heat.addEventListener('pointerleave', hideTip); heat.addEventListener('focusout', hideTip);
+
+  // weekday averages
+  const wd = order.map(w => { let st = 0, gr = 0, n = 0; for (const r of D.daily) if (last.includes(ym(r.business_date)) && weekday(r.business_date) === w && (num(r.store_bills) > 0 || num(r.grab_orders) > 0)) { st += num(r.store_net); gr += num(r.grab_net); n++; } return { st: n ? st / n : 0, gr: n ? gr / n : 0, n }; });
+  const o3 = baseChartOptions(); o3.scales.x.stacked = true; o3.scales.y.stacked = true;
+  o3.plugins.tooltip.callbacks = { label: c => ` ${c.dataset.label}: ${baht(c.raw)} ฿`, footer: it => `รวม ${baht(it.reduce((t, x) => t + x.raw, 0))} ฿ · ${wd[it[0].dataIndex].n} วันเปิด` };
+  charts.push(new Chart($('#c-wd'), { type: 'bar', data: { labels: order.map(w => TH_DAY[w]), datasets: [
+    { label: 'หน้าร้าน', data: wd.map(x => Math.round(x.st)), backgroundColor: css('--series-1'), borderRadius: 4, borderSkipped: 'start', borderColor: css('--surface-1'), borderWidth: { top: 2 }, maxBarThickness: 40 },
+    { label: 'Grab', data: wd.map(x => Math.round(x.gr)), backgroundColor: css('--series-2'), borderRadius: 4, borderSkipped: 'start', borderColor: css('--surface-1'), borderWidth: { top: 2 }, maxBarThickness: 40 }] }, options: o3 }));
+
+  // weekend morning tracker
+  const wkRow = ms_ => { let days = 0, cups = 0, grab = 0; const dset = new Set();
+    for (const r of D.daily) if (ms_.includes(ym(r.business_date)) && [0, 6].includes(weekday(r.business_date)) && (num(r.store_bills) > 0 || num(r.grab_orders) > 0)) { days++; dset.add(r.business_date); }
+    for (const r of D.hourly) if (dset.has(r.business_date)) { if (r.business_hour >= 8 && r.business_hour <= 9) cups += num(r.store_cups); if (r.business_hour >= 8 && r.business_hour <= 10) grab += num(r.grab_orders); }
+    return { days, cups: days ? cups / days : null, grab: days ? grab / days : null }; };
+  const base = wkRow(['2026-08', '2026-09', '2026-10']);
+  const recent = D.months.filter(x => x >= '2026-11');
+  let t = `<table class="num"><thead><tr><th>ช่วง</th><th class="r">วันเสาร์–อาทิตย์</th><th class="r">แก้วหน้าร้าน 08–10 น./วัน</th><th class="r">Grab 08–11 น./วัน</th></tr></thead><tbody>`;
+  t += `<tr><td>ฐาน ส.ค.–ต.ค.</td><td class="r">${base.days}</td><td class="r">${base.cups == null ? '–' : nf1.format(base.cups)}</td><td class="r">${base.grab == null ? '–' : nf1.format(base.grab)}</td></tr>`;
+  for (const mm of recent) { const r = wkRow([mm]); t += `<tr><td>${monthLabelLong(mm)}</td><td class="r">${r.days}</td><td class="r">${r.cups == null ? '–' : nf1.format(r.cups)}</td><td class="r">${r.grab == null ? '–' : nf1.format(r.grab)}</td></tr>`; }
+  t = t.replace('<th class="r">วันเสาร์–อาทิตย์</th><th class="r">แก้วหน้าร้าน 08–10 น./วัน</th><th class="r">Grab 08–11 น./วัน</th>', '<th class="r">วัน</th><th class="r">แก้ว 08–10 น.</th><th class="r">Grab 08–11 น.</th>');
+  t += `</tbody></table><p class="sub" style="margin-top:8px">ค่าต่อวันเปิด (แก้วหน้าร้าน / ออเดอร์ Grab) · เกณฑ์: ช่วง 08–10 น. ได้ ≈1 แก้ว/วันหรือน้อยกว่า → เปิด 10:00 วันเสาร์–อาทิตย์คุ้มกว่า · ตัดสินเมื่อมีข้อมูล ≥ 8–12 วันหลังเริ่มทดสอบ</p>`;
+  $('#wk').innerHTML = t;
+}
+
+// ---------- menu ----------
+function renderMenu(v) {
+  const months = state.menuRange === 'month' ? [state.month] : D.months.filter(x => x <= state.month).slice(-3);
+  const agg = new Map();
+  for (const r of D.menuSales) {
+    if (!months.includes(ym(r.business_date))) continue;
+    const key = r.menu_name + '|' + (r.temp || '');
+    const a = agg.get(key) || { name: r.menu_name, temp: r.temp, cat: r.category, qs: 0, qg: 0, net: 0 };
+    if (r.channel === 'grab') a.qg += num(r.qty); else { a.qs += num(r.qty); a.net += num(r.net); }
+    agg.set(key, a);
+  }
+  const rows = [...agg.values()].map(a => {
+    const c = costFor(a.name, a.temp);
+    const profit = c ? a.qs * num(c.profit_dinein) + a.qg * num(c.profit_takeaway) : null;
+    return Object.assign(a, { c, qty: a.qs + a.qg, profit, margin: c && num(c.price_expected) ? num(c.profit_dinein) / num(c.price_expected) : null });
+  }).filter(r => r.qty > 0 && r.cat !== 'Extra');
+  const sorters = { profit: (a, b) => (b.profit ?? -1) - (a.profit ?? -1), qty: (a, b) => b.qty - a.qty, margin: (a, b) => (b.margin ?? -1) - (a.margin ?? -1) };
+  rows.sort(sorters[state.menuSort]);
+  const matched = rows.filter(r => r.c), unmatchedQty = rows.filter(r => !r.c).reduce((t, r) => t + r.qty, 0);
+  const totalProfit = matched.reduce((t, r) => t + r.profit, 0);
+  const top = [...matched].sort((a, b) => b.profit - a.profit).slice(0, 10);
+  const tempTh = t => t === 'hot' ? 'ร้อน' : t === 'iced' ? 'เย็น' : '';
+
+  v.innerHTML = `
+    <div class="rowflex"><div><h2>เมนูและต้นทุน</h2><p class="sub">${months.map(monthLabelLong).join(', ')} · ต้นทุนจาก Unit-cost-proposal-3 (ณ ${esc(D.menuCosts[0]?.as_of || '–')}) · หน้าร้านใช้กำไรทานร้าน, บิล Grab ใช้กำไรกลับบ้าน</p></div>
+      <div class="seg" id="seg-mr">${[['month', 'เดือนนี้'], ['3m', '3 เดือน']].map(([k, t]) => `<button data-k="${k}" class="${state.menuRange === k ? 'on' : ''}">${t}</button>`).join('')}</div></div>
+    <div class="grid kpis">
+      <div class="card kpi"><div class="label">กำไรขั้นต้นจากเครื่องดื่ม</div><div class="value num">${baht(totalProfit)} ฿</div><div class="delta">ราคาขาย − วัตถุดิบและแก้ว · ก่อนหักต้นทุนคงที่</div></div>
+      <div class="card kpi"><div class="label">แก้วที่คิดต้นทุนได้</div><div class="value num">${nf0.format(matched.reduce((t, r) => t + r.qty, 0))}</div><div class="delta">ยังไม่มีต้นทุน ${nf0.format(unmatchedQty)} ชิ้น (ขนม ฯลฯ)</div></div>
+      <div class="card kpi"><div class="label">กำไรขั้นต้นเฉลี่ยต่อแก้ว</div><div class="value num">${matched.length ? nf1.format(totalProfit / matched.reduce((t, r) => t + r.qty, 0)) : '–'} ฿</div></div>
+      <div class="card kpi"><div class="label">เมนูที่ขาย</div><div class="value num">${rows.length}</div></div>
+    </div>
+    <div class="grid">
+      <div class="card"><h2>10 อันดับกำไรรวม</h2><p class="sub">จำนวนที่ขาย × กำไรต่อแก้ว</p><div class="chart-box tall"><canvas id="c-top"></canvas></div></div>
+      <div class="card"><div class="rowflex"><div><h2>ทุกเมนู</h2><p class="sub">ราคา = ราคาเฉลี่ยที่ลูกค้าจ่าย (รวมค่าเพิ่มเมล็ด)</p></div>
+        <div class="seg" id="seg-ms">${[['profit', 'กำไรรวม'], ['qty', 'ขายมาก'], ['margin', '% กำไร']].map(([k, t]) => `<button data-k="${k}" class="${state.menuSort === k ? 'on' : ''}">${t}</button>`).join('')}</div></div>
+        <div class="scroll maxh"><table class="num"><thead><tr><th>เมนู</th><th class="r">ขาย</th><th class="r">ราคา</th><th class="r">ต้นทุน</th><th class="r">กำไร/แก้ว</th><th class="r">%</th><th class="r">กำไรรวม</th></tr></thead><tbody>
+        ${rows.map(r => `<tr><td>${esc(r.name)} ${r.temp ? `<span class="tag">${tempTh(r.temp)}</span>` : ''}</td><td class="r">${nf0.format(r.qty)}</td>${r.c ? `<td class="r">${nf0.format(num(r.c.price_expected))}</td><td class="r">${nf1.format(num(r.c.cost_dinein))}</td><td class="r">${nf1.format(num(r.c.profit_dinein))}</td><td class="r">${pct(r.margin)}</td><td class="r">${baht(r.profit)}</td>` : `<td class="r" colspan="5" style="color:var(--text-muted)">ยังไม่มีต้นทุน</td>`}</tr>`).join('')}
+        </tbody></table></div></div>
+    </div>
+    <div class="grid two" style="margin-top:12px">
+      <div class="card"><h2>เมล็ดกาแฟที่ลูกค้าเลือก</h2><p class="sub">${months.map(monthLabelLong).join(', ')} · นับเฉพาะแก้วที่คีย์ตัวเลือกเมล็ดใน POS (หน้าร้าน + บิล Grab)</p><div id="opt-bean"></div></div>
+      <div class="card"><h2>มัทฉะที่ลูกค้าเลือก</h2><p class="sub">${months.map(monthLabelLong).join(', ')} · นับเฉพาะแก้วที่คีย์ตัวเลือกมัทฉะใน POS</p><div id="opt-matcha"></div></div>
+    </div>
+    <div class="card" style="margin-top:12px"><h2>เมล็ดกาแฟและมัทฉะรายเดือน</h2><p class="sub">จำนวนแก้วต่อเดือน · ช่องว่าง = ไม่มีขาย (หรือยังไม่ได้เป็นตัวเลือกใน POS เดือนนั้น)</p><div class="scroll" id="opt-trend"></div></div>`;
+  renderOptions(months);
+  $('#seg-mr').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; state.menuRange = b.dataset.k; render(); });
+  $('#seg-ms').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; state.menuSort = b.dataset.k; render(); });
+  const o = baseChartOptions({ indexAxis: 'y', interaction: { mode: 'nearest', axis: 'y', intersect: false } });
+  o.scales.x = Object.assign(baseChartOptions().scales.y, {}); o.scales.y = Object.assign(baseChartOptions().scales.x, { ticks: Object.assign(baseChartOptions().scales.x.ticks, { autoSkip: false }) });
+  o.plugins.tooltip.callbacks = { label: c => { const r = top[c.dataIndex]; return [` กำไรรวม ${baht(r.profit)} ฿`, ` ขาย ${nf0.format(r.qty)} · ${nf1.format(num(r.c.profit_dinein))} ฿/แก้ว`]; } };
+  charts.push(new Chart($('#c-top'), { type: 'bar', data: { labels: top.map(r => r.name + (r.temp ? ` (${tempTh(r.temp)})` : '')), datasets: [
+    { label: 'กำไรรวม', data: top.map(r => Math.round(r.profit)), backgroundColor: css('--series-1'), borderRadius: 4, borderSkipped: 'start', maxBarThickness: 20 }] }, options: o }));
+}
+
+function renderOptions(months) {
+  for (const kind of ['bean', 'matcha']) {
+    const agg = new Map();
+    for (const r of D.optionSales) {
+      if (r.kind !== kind || !months.includes(ym(r.business_date))) continue;
+      const a = agg.get(r.name) || { name: r.name, detail: r.detail, store: 0, grab: 0 };
+      if (r.channel === 'grab') a.grab += num(r.qty); else a.store += num(r.qty);
+      if (r.detail) a.detail = r.detail; agg.set(r.name, a);
+    }
+    const rows = [...agg.values()].sort((a, b) => (b.store + b.grab) - (a.store + a.grab));
+    const total = rows.reduce((t, r) => t + r.store + r.grab, 0);
+    const el = $('#opt-' + kind);
+    if (!rows.length) { el.innerHTML = '<p class="sub">ไม่มีข้อมูลตัวเลือกนี้ในช่วงที่เลือก</p>'; continue; }
+    const max = Math.max(...rows.map(r => r.store + r.grab));
+    el.innerHTML = `${legend([[css('--series-1'), 'หน้าร้าน', 1], [css('--series-2'), 'Grab', 1]])}<div class="bars">` + rows.map(r => {
+      const tot = r.store + r.grab;
+      return `<div class="barrow" tabindex="0" data-tip="${esc(`<strong>${nf0.format(tot)} แก้ว</strong> (${pct(tot / total)})<br>หน้าร้าน ${nf0.format(r.store)} · Grab ${nf0.format(r.grab)}`)}">
+        <div class="bl">${esc(r.name)}${r.detail ? ` <span class="tag">${esc(r.detail)}</span>` : ''}</div>
+        <div class="bt"><span style="width:${r.store / max * 100}%;background:var(--series-1)"></span><span style="width:${r.grab / max * 100}%;background:var(--series-2)"></span></div>
+        <div class="bv num">${nf0.format(tot)} <small>${pct(tot / total)}</small></div></div>`;
+    }).join('') + '</div>';
+    el.addEventListener('pointermove', e => { const b = e.target.closest('.barrow'); if (b) showTip(b.dataset.tip, e.clientX, e.clientY); });
+    el.addEventListener('pointerleave', hideTip);
+  }
+  // monthly trend table
+  const allMonths = D.months.filter(x => x <= state.month);
+  const names = { bean: new Map(), matcha: new Map() };
+  for (const r of D.optionSales) { if (!allMonths.includes(ym(r.business_date))) continue; const mm = names[r.kind]; const k = r.name; const o = mm.get(k) || {}; o[ym(r.business_date)] = (o[ym(r.business_date)] || 0) + num(r.qty); mm.set(k, o); }
+  let h = `<table class="num"><thead><tr><th>ตัวเลือก</th>${allMonths.map(x => `<th class="r">${monthLabel(x)}</th>`).join('')}</tr></thead><tbody>`;
+  for (const [kind, title] of [['bean', 'เมล็ดกาแฟ'], ['matcha', 'มัทฉะ']]) {
+    h += `<tr><td colspan="${allMonths.length + 1}" style="font-weight:500;color:var(--text-secondary)">${title}</td></tr>`;
+    const rows = [...names[kind].entries()].sort((a, b) => Object.values(b[1]).reduce((x, y) => x + y, 0) - Object.values(a[1]).reduce((x, y) => x + y, 0));
+    for (const [n, o] of rows) h += `<tr><td>${esc(n)}</td>${allMonths.map(x => `<td class="r">${o[x] ? nf0.format(o[x]) : ''}</td>`).join('')}</tr>`;
+  }
+  $('#opt-trend').innerHTML = h + '</tbody></table>';
+}
+
+// ---------- P&L ----------
+function renderPnl(v) {
+  const months = D.months.filter(x => x <= state.month);
+  const P = months.map(pnlOfMonth);
+  const catLabel = k => k === '_none' ? 'ไม่ระบุหมวด' : (D.categories.find(c => c.key === k)?.label_th || k);
+  const keysOf = grp => { const ks = new Set(); P.forEach(p => Object.keys(p.cats).forEach(k => { const g = k === '_none' ? 'other' : (D.categories.find(c => c.key === k)?.group_key || 'other'); if (g === grp || (grp === 'opex' && g !== 'variable')) ks.add(k); })); return [...ks].sort((a, b) => (D.categories.find(c => c.key === a)?.sort_order ?? 999) - (D.categories.find(c => c.key === b)?.sort_order ?? 999)); };
+  const money = (label, f, cls = '') => `<tr class="${cls}"><td>${label}</td>${P.map((p, i) => { const x = f(p); return `<td class="r ${months[i] === state.month ? 'sel' : ''} ${x < 0 ? 'neg' : ''}">${x == null ? '' : baht(x)}</td>`; }).join('')}</tr>`;
+  const cost = (label, f) => `<tr><td>&nbsp;&nbsp;${esc(label)}</td>${P.map((p, i) => { const x = f(p); return `<td class="r ${months[i] === state.month ? 'sel' : ''}">${x ? '−' + baht(x) : ''}</td>`; }).join('')}</tr>`;
+  const head = `<tr class="grp"><td colspan="${months.length + 1}">`;
+  const t = targetFor(state.month); const salaryT = t ? num(t.owner_salary_target) : 0;
+  let html = `<table class="num pnl"><thead><tr><th>รายการ (บาท)</th>${months.map(x => `<th class="r ${x === state.month ? 'sel' : ''}">${monthLabel(x)}</th>`).join('')}</tr></thead><tbody>`;
+  html += head + 'รายรับ</td></tr>' + money('&nbsp;&nbsp;หน้าร้าน (POS)', p => p.s.store) + money('&nbsp;&nbsp;Grab เงินเข้าสุทธิ (หักค่าธรรมเนียมแล้ว)', p => p.s.grab) + money('รายรับรวม', p => p.s.total, 'sum');
+  html += head + 'ต้นทุนผันแปร (ซื้อวัตถุดิบ/บรรจุภัณฑ์ ตามบิลที่ลง)</td></tr>' + keysOf('variable').map(k => cost(catLabel(k), p => p.cats[k] || 0)).join('');
+  html += money('กำไรขั้นต้น', p => p.gross, 'sum') + `<tr><td>&nbsp;&nbsp;% ของรายรับ</td>${P.map((p, i) => `<td class="r ${months[i] === state.month ? 'sel' : ''}">${p.s.total ? pct(p.gross / p.s.total) : ''}</td>`).join('')}</tr>`;
+  html += head + 'ค่าใช้จ่ายดำเนินงาน (ตามบิลที่ลง)</td></tr>' + keysOf('opex').map(k => cost(catLabel(k), p => p.cats[k] || 0)).join('') + cost('ค่าเสื่อมทรัพย์สิน (คำนวณ)', p => p.dep);
+  html += money('กำไรสุทธิ', p => p.net, 'sum total');
+  if (salaryT) html += money(`กำไรหลังหักเงินเดือนเป้า ${baht(salaryT)}`, p => p.net - salaryT, 'memo');
+  html += '</tbody></table>';
+
+  const planned = fixedPlanned(state.month), dep = depreciationOfMonth(state.month);
+  const last3 = grossRatio(state.month).months;
+  const avgCat = k => k ? last3.reduce((a, x) => a + (pnlOfMonth(x).cats[k] || 0), 0) / (last3.length || 1) : null;
+  const fixedSum = planned.reduce((a, f) => a + num(f.monthly_amount), 0);
+
+  v.innerHTML = `
+    <div class="card"><h2>งบกำไรขาดทุนรายเดือน</h2><p class="sub">รายรับจาก POS/Grab · รายจ่ายตามบิลที่ลงในระบบ (นับตอนซื้อ เดือนที่ซื้อของตุนจะดูกำไรน้อยลง) · ค่าเสื่อมคำนวณจากทรัพย์สิน · การจ่ายคืนหนี้ไม่นับเป็นรายจ่าย · พ.ค. = เดือนทดลอง</p>
+      <div class="scroll">${html}</div></div>
+    <div class="grid two" style="margin-top:12px">
+      <div class="card"><h2>ต้นทุนคงที่ต่อเดือน</h2><p class="sub">ค่าที่ใช้คิดจุดคุ้มทุน เทียบกับที่จ่ายจริงเฉลี่ย ${last3.map(monthLabel).join(', ')}</p>
+        <div class="scroll"><table class="num"><thead><tr><th>รายการ</th><th class="r">ตั้งไว้/เดือน</th><th class="r">จ่ายจริงเฉลี่ย</th></tr></thead><tbody>
+        ${planned.map(f => `<tr title="${esc(f.note || '')}"><td>${esc(f.name)}</td><td class="r">${baht(f.monthly_amount)}</td><td class="r">${f.category_key ? baht(avgCat(f.category_key)) : '<span style="color:var(--text-muted)">–</span>'}</td></tr>`).join('')}
+        <tr><td>ค่าเสื่อมทรัพย์สิน (คำนวณจากรายการทรัพย์สิน)</td><td class="r">${baht(dep)}</td><td class="r">${baht(dep)}</td></tr>
+        <tr class="sum"><td>รวมต้นทุนคงที่</td><td class="r">${baht(fixedSum + dep)}</td><td class="r"></td></tr>
+        ${salaryT ? `<tr><td>เงินเดือนเจ้าของ (เป้า)</td><td class="r">${baht(salaryT)}</td><td class="r"></td></tr><tr class="sum"><td>รวมที่ต้องหาให้ได้ต่อเดือน</td><td class="r">${baht(fixedSum + dep + salaryT)}</td><td class="r"></td></tr>` : ''}
+        </tbody></table></div>
+        <p class="sub" style="margin-top:8px">"ตั้งไว้" มาจากชีตต้นทุนคงที่ของรายงานหลัก (โมเดลค่าเช่า 0) · จะแก้ได้ในหน้าหลังบ้าน</p></div>
+      <div class="card"><h2>กำไรสุทธิรายเดือน</h2><p class="sub">หลังค่าเสื่อม · ก่อนเงินเดือนเจ้าของ</p><div class="chart-box"><canvas id="c-net"></canvas></div></div>
+    </div>`;
+  const o = baseChartOptions(); o.scales.y.beginAtZero = true;
+  o.plugins.tooltip.callbacks = { label: c => ` กำไรสุทธิ ${baht(c.raw)} ฿`, afterLabel: c => `รายรับ ${baht(P[c.dataIndex].s.total)} ฿` };
+  charts.push(new Chart($('#c-net'), { type: 'bar', data: { labels: months.map(monthLabel), datasets: [{ label: 'กำไรสุทธิ', data: P.map(p => Math.round(p.net)), backgroundColor: P.map(p => p.net < 0 ? css('--critical') : css('--series-1')), borderRadius: 4, borderSkipped: 'start', maxBarThickness: 44 }] }, options: o }));
+}
+
+// ---------- balance sheet ----------
+function renderBalance(v) {
+  const m = state.month; const asOf = addMonths(m, 1) + '-01';   // end of the selected month
+  const active = D.assets.filter(a => a.purchase_date < asOf && !(a.status === 'disposed' && a.disposed_date && a.disposed_date < asOf));
+  let price = 0, acc = 0; const byCat = new Map();
+  for (const a of active) { const x = assetValue(a, asOf); price += num(a.purchase_price); acc += x.acc; const cn = ASSET_CAT[a.category] || a.category || 'อื่นๆ'; const c = byCat.get(cn) || { book: 0, n: 0, price: 0, acc: 0, items: [] }; c.book += x.book; c.price += num(a.purchase_price); c.acc += x.acc; c.n++; c.items.push({ a, x }); byCat.set(cn, c); }
+  const book = price - acc;
+  const latestBal = new Map();
+  for (const b of D.balances) { if (b.as_of >= asOf) continue; const cur = latestBal.get(b.payment_account_id); if (!cur || b.as_of > cur.as_of) latestBal.set(b.payment_account_id, b); }
+  const cash = [...latestBal.values()].reduce((t, b) => t + num(b.balance), 0);
+  const ownerOwes = D.ownerEntries.filter(e => e.direction === 'owner_owes_shop' && e.status === 'active').reduce((t, e) => t + num(e.amount), 0);
+  const debts = new Map();
+  for (const l of D.liabilities) { const out = num(l.original_amount) - num(l.paid_amount); if (out <= 0.005 || l.status === 'paid') continue; const k = l.creditor_name || 'ไม่ระบุ'; const d = debts.get(k) || { out: 0, n: 0, type: l.creditor_type }; d.out += out; d.n++; debts.set(k, d); }
+  const debtTotal = [...debts.values()].reduce((t, d) => t + d.out, 0);
+  const totalAssets = book + cash + ownerOwes, equity = totalAssets - debtTotal;
+  const accName = id => D.accounts.find(a => a.id === id)?.label_th || 'บัญชี';
+  const cats = [...byCat.entries()].sort((a, b) => b[1].book - a[1].book);
+  const lifeTxt = a => num(a.useful_life_months) > 0 ? `${num(a.useful_life_months)} ด.` : 'ไม่คิด';
+  const assetDetail = cats.map(([name, c]) => `<details><summary><span class="l">${esc(name)} <span class="tag">${c.n} รายการ</span></span><span class="num">${baht(c.book)}</span></summary>
+    <div class="scroll maxh"><table class="num"><thead><tr><th>รายการ</th><th>ซื้อเมื่อ</th><th class="r">ราคาซื้อ</th><th class="r">อายุใช้งาน</th><th class="r">เสื่อมไปแล้ว</th><th class="r">มูลค่าคงเหลือ</th></tr></thead><tbody>
+    ${c.items.sort((p, q) => q.x.book - p.x.book || num(q.a.purchase_price) - num(p.a.purchase_price)).map(({ a, x }) => `<tr><td style="white-space:normal;min-width:140px">${esc(a.name)}</td><td>${thDate(a.purchase_date)}</td><td class="r">${baht(a.purchase_price)}</td><td class="r">${lifeTxt(a)}</td><td class="r">${baht(x.acc)}</td><td class="r">${baht(x.book)}</td></tr>`).join('')}
+    <tr class="sum"><td>รวม</td><td></td><td class="r">${baht(c.price)}</td><td></td><td class="r">${baht(c.acc)}</td><td class="r">${baht(c.book)}</td></tr></tbody></table></div></details>`).join('');
+  const cashAccounts = D.accounts.filter(a => ['scb', 'ktb', 'krungsri', 'cash'].includes(a.key) || D.balances.some(b => b.payment_account_id === a.id)).sort((a, b) => a.sort_order - b.sort_order);
+  const cashDetail = cashAccounts.map(acct => {
+    const hist = D.balances.filter(b => b.payment_account_id === acct.id && b.as_of < asOf).sort((a, b) => b.as_of.localeCompare(a.as_of));
+    const last = hist[0];
+    return `<details><summary><span class="l">${esc(acct.label_th)}${last ? ` <span class="tag">ณ ${thDate(last.as_of)}</span>` : ''}</span><span class="num">${last ? baht(last.balance) : '<span style="color:var(--text-muted)">ยังไม่นับ</span>'}</span></summary>
+      ${hist.length ? `<div class="scroll"><table class="num"><thead><tr><th>วันที่นับ</th><th class="r">ยอด</th><th>หมายเหตุ</th></tr></thead><tbody>${hist.map(b => `<tr><td>${thDate(b.as_of)}</td><td class="r">${baht(b.balance)}</td><td style="white-space:normal">${esc(b.note || '')}</td></tr>`).join('')}</tbody></table></div>` : '<p class="sub">ยังไม่มียอดนับของบัญชีนี้ — จะลงได้จากหน้าหลังบ้าน (ยอดนับ safe / ยอดคงเหลือธนาคาร)</p>'}</details>`;
+  }).join('');
+
+  v.innerHTML = `
+    <div class="rowflex"><div><h2>งบดุล ณ สิ้น ${monthLabelLong(m)}</h2><p class="sub">ทรัพย์สินหักค่าเสื่อมแบบเส้นตรงรายเดือน · หนี้ = ยอดตั้งต้น − ที่จ่ายแล้ว</p></div></div>
+    <div class="grid kpis">
+      <div class="card kpi"><div class="label">มูลค่าทรัพย์สินในร้าน (สุทธิ)</div><div class="value num">${baht(book)} ฿</div><div class="delta">ซื้อมา ${baht(price)} − เสื่อมไปแล้ว ${baht(acc)} · <a class="more" href="#assets-detail">ดูรายชิ้น</a></div></div>
+      <div class="card kpi"><div class="label">เงินสด + เงินในบัญชี</div><div class="value num">${latestBal.size ? baht(cash) + ' ฿' : '–'}</div><div class="delta">${latestBal.size ? 'ยอดนับล่าสุดก่อนสิ้นเดือน' : 'ยังไม่มียอดนับ (เริ่ม 30 พ.ย.)'} · <a class="more" href="#cash-detail">แยกบัญชี</a></div></div>
+      <div class="card kpi"><div class="label">หนี้สินคงค้าง</div><div class="value num">${baht(debtTotal)} ฿</div><div class="delta">${debts.size} เจ้าหนี้</div></div>
+      <div class="card kpi"><div class="label">ส่วนของเจ้าของ</div><div class="value num ${equity < 0 ? 'neg' : ''}">${baht(equity)} ฿</div><div class="delta">ทรัพย์สินรวม − หนี้สิน${latestBal.size ? '' : ' (ยังไม่รวมเงินสด/ธนาคาร)'}</div></div>
+    </div>
+    <div class="grid two">
+      <div class="card"><h2>ทรัพย์สิน</h2>
+        <div class="lines num">
+          <div><span>ทรัพย์สินถาวรหลังค่าเสื่อม (${active.length} รายการ)</span><span>${baht(book)}</span></div>
+          ${[...latestBal.values()].map(b => `<div><span>${esc(accName(b.payment_account_id))} <span class="tag">${esc(b.as_of)}</span></span><span>${baht(b.balance)}</span></div>`).join('') || '<div><span>เงินสด/ธนาคาร</span><span style="color:var(--text-muted)">ยังไม่นับ</span></div>'}
+          <div><span>เจ้าของค้างร้าน (ใช้เงินร้านส่วนตัว)</span><span>${baht(ownerOwes)}</span></div>
+          <div class="total"><span>ทรัพย์สินรวม</span><span>${baht(totalAssets)}</span></div>
+        </div>
+        <h3 style="margin-top:16px">มูลค่าสุทธิตามหมวด</h3>
+        <div class="chart-box" style="height:${Math.max(120, cats.length * 30 + 30)}px"><canvas id="c-assets"></canvas></div>
+        <h3 id="cash-detail" style="margin-top:16px;scroll-margin-top:120px">เงินสดและเงินในบัญชี</h3><p class="sub">ยอดนับล่าสุดก่อนสิ้นเดือนที่เลือก · กดดูประวัติแต่ละบัญชี</p>
+        ${cashDetail}
+      </div>
+      <div class="card"><h2>หนี้สินและส่วนของเจ้าของ</h2>
+        <div class="lines num">
+          ${[...debts.entries()].sort((a, b) => b[1].out - a[1].out).map(([k, d]) => `<div><span>${esc(k)} <span class="tag">${d.n} รายการ</span></span><span>${baht(d.out)}</span></div>`).join('')}
+          <div class="total"><span>หนี้สินรวม</span><span>${baht(debtTotal)}</span></div>
+          <div class="total"><span>ส่วนของเจ้าของ</span><span class="${equity < 0 ? 'neg' : ''}">${baht(equity)}</span></div>
+        </div>
+        <h3 style="margin-top:16px">บัญชีเจ้าของ ↔ ร้าน</h3>
+        <div class="lines num">
+          <div><span>ร้านค้างเจ้าของ (หนี้เจ้าของในระบบ)</span><span>${baht([...debts.values()].filter(d => d.type === 'owner').reduce((t, d) => t + d.out, 0))}</span></div>
+          <div><span>เจ้าของค้างร้าน</span><span>−${baht(ownerOwes)}</span></div>
+          <div class="total"><span>สุทธิ ร้านค้างเจ้าของ</span><span>${baht([...debts.values()].filter(d => d.type === 'owner').reduce((t, d) => t + d.out, 0) - ownerOwes)}</span></div>
+        </div>
+        <p class="sub" style="margin-top:8px">ยังไม่ได้หักลบกันจริง — หักเมื่อเจ้าของตกลง</p>
+      </div>
+    </div>
+    <div class="card" id="assets-detail" style="margin-top:12px;scroll-margin-top:120px"><h2>ทรัพย์สินรายชิ้น</h2>
+      <p class="sub">มูลค่าคงเหลือ = ราคาซื้อ − ค่าเสื่อม (ราคาซื้อ ÷ อายุใช้งาน × เดือนที่ใช้มาแล้ว) · "ไม่คิด" = ของชิ้นเล็กที่ไม่คิดค่าเสื่อม มูลค่าเท่าราคาซื้อ · กดหมวดเพื่อดูรายการ</p>
+      ${assetDetail}</div>`;
+  const o = baseChartOptions({ indexAxis: 'y', interaction: { mode: 'nearest', axis: 'y', intersect: false } });
+  o.scales.x = Object.assign(baseChartOptions().scales.y, {}); o.scales.y = Object.assign(baseChartOptions().scales.x, { ticks: Object.assign(baseChartOptions().scales.x.ticks, { autoSkip: false }) });
+  o.plugins.tooltip.callbacks = { label: c => ` ${baht(c.raw)} ฿ · ${cats[c.dataIndex][1].n} รายการ` };
+  charts.push(new Chart($('#c-assets'), { type: 'bar', data: { labels: cats.map(c => c[0]), datasets: [{ data: cats.map(c => Math.round(c[1].book)), backgroundColor: css('--series-1'), borderRadius: 4, borderSkipped: 'start', maxBarThickness: 18 }] }, options: o }));
+}
+
+// ---------- shell ----------
+function setTab(t) { state.tab = t; }
+document.querySelector('nav.tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; state.tab = b.dataset.tab; try { localStorage.setItem('bb-dash-tab', state.tab); } catch (_) {} render(); });
+$('#month').addEventListener('change', e => { state.month = e.target.value; render(); });
+$('#logout').addEventListener('click', async () => { if (!D.__mock) await sb.auth.signOut(); location.reload(); });
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (D.months) render(); });
+
+async function start() {
+  $('#login').hidden = true; $('#app').hidden = false;
+  try {
+    if (!MOCK_URL) {
+      const { data: { user } } = await sb.auth.getUser();
+      const { data: roles, error } = await sb.from('app_user_roles').select('role').eq('user_id', user.id);
+      if (error || !roles?.some(r => ['owner', 'manager'].includes(r.role))) { $('#view').textContent = 'บัญชีนี้ยังไม่มีสิทธิ์ดูแดชบอร์ด (ต้องเป็น owner หรือ manager)'; return; }
+    }
+    await loadData();
+    if (!D.months.length) { $('#view').textContent = 'ยังไม่มีข้อมูลยอดขายในระบบ — นำเข้ายอดขาย POS/Grab ก่อน'; return; }
+    state.month = D.months[D.months.length - 1];
+    try { const t = localStorage.getItem('bb-dash-tab'); if (t) state.tab = t; } catch (_) {}
+    $('#month').innerHTML = [...D.months].reverse().map(m => `<option value="${m}">${monthLabelLong(m)}</option>`).join('');
+    render();
+  } catch (err) { console.error(err); $('#view').textContent = 'โหลดข้อมูลไม่สำเร็จ: ' + err.message; }
+}
+
+$('#login-form').addEventListener('submit', async e => {
+  e.preventDefault(); $('#login-err').hidden = true;
+  const { error } = await sb.auth.signInWithPassword({ email: $('#email').value, password: $('#password').value });
+  if (error) { $('#login-err').textContent = 'อีเมลหรือรหัสผ่านไม่ถูกต้อง'; $('#login-err').hidden = false; return; }
+  start();
+});
+
+(async () => {
+  if (MOCK_URL) return start();
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) start(); else $('#login').hidden = false;
+})();
+</script>
+</body>
+</html>

@@ -4,3 +4,7 @@
 *.env
 .env.*
 supabase/.temp/
+
+# dashboard data must never be committed (public repo)
+docs/*.json
+*.data.json
