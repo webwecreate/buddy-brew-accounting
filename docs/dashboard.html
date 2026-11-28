@@ -17,7 +17,7 @@
     --surface-0: #F5F0EA; --surface-1: #fcfcfb; --surface-2: #efe9e1;
     --text-primary: #1d1b19; --text-secondary: #55524d; --text-muted: #85817a;
     --border: #e4ddd3; --grid: #ece7df;
-    --series-1: #2a78d6; --series-2: #eb6834;
+    --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100; --gov-ink: #1f6fd1; --ch-green: #0a7f3f;
     --seq-0: #f3efe9; --seq-1: #cde2fb; --seq-2: #9ec5f4; --seq-3: #6da7ec; --seq-4: #3987e5; --seq-5: #256abf; --seq-6: #184f95;
     --good: #0b7d0b; --critical: #c23030; --warn-bg: #fff4dc; --warn-ink: #7a5200;
     --radius: 14px;
@@ -28,7 +28,7 @@
       --brand: #d8433f; --surface-0: #141312; --surface-1: #1d1c1a; --surface-2: #272522;
       --text-primary: #f0efec; --text-secondary: #c3c2b7; --text-muted: #8f8d86;
       --border: #34322e; --grid: #2a2926;
-      --series-1: #3987e5; --series-2: #d95926;
+      --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500; --gov-ink: #6aa8f0; --ch-green: #0a7f3f;
       --seq-0: #22211f; --seq-1: #104281; --seq-2: #184f95; --seq-3: #1c5cab; --seq-4: #2a78d6; --seq-5: #5598e7; --seq-6: #9ec5f4;
       --good: #3fbf3f; --critical: #e66767; --warn-bg: #3a2f14; --warn-ink: #f5d48a;
     }
@@ -38,7 +38,7 @@
     --brand: #d8433f; --surface-0: #141312; --surface-1: #1d1c1a; --surface-2: #272522;
     --text-primary: #f0efec; --text-secondary: #c3c2b7; --text-muted: #8f8d86;
     --border: #34322e; --grid: #2a2926;
-    --series-1: #3987e5; --series-2: #d95926;
+    --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500; --gov-ink: #6aa8f0; --ch-green: #0a7f3f;
     --seq-0: #22211f; --seq-1: #104281; --seq-2: #184f95; --seq-3: #1c5cab; --seq-4: #2a78d6; --seq-5: #5598e7; --seq-6: #9ec5f4;
     --good: #3fbf3f; --critical: #e66767; --warn-bg: #3a2f14; --warn-ink: #f5d48a;
   }
@@ -85,6 +85,8 @@
   .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--text-secondary); margin: 2px 0 8px; }
   .legend span::before { content: ""; display: inline-block; width: 14px; height: 3px; border-radius: 2px; background: var(--c); vertical-align: middle; margin-right: 6px; }
   .legend .sq::before { width: 10px; height: 10px; border-radius: 3px; }
+  .ch { display: inline-block; font-size: 10.5px; font-weight: 600; letter-spacing: .04em; line-height: 1; padding: 3px 6px 2px; border-radius: 4px; color: #fff; background: var(--ch-green); vertical-align: 1px; white-space: nowrap; }
+  .ch-gov { color: var(--gov-ink); font-weight: 500; }
   table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
   th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
   th { font-weight: 500; color: var(--text-secondary); font-size: 12.5px; position: sticky; top: 0; background: var(--surface-1); }
@@ -120,7 +122,7 @@
   @media (max-width: 759px) {
     .logo small { display: none; }
     nav.tabs { position: fixed; left: 0; right: 0; bottom: 0; background: var(--surface-1); border-top: 1px solid var(--border); padding: 4px 4px calc(4px + env(safe-area-inset-bottom)); max-width: none; justify-content: space-around; }
-    nav.tabs button { color: var(--text-muted); border-bottom: 0; border-top: 3px solid transparent; padding: 8px 6px; font-size: 14px; flex: 1; }
+    nav.tabs button { color: var(--text-muted); border-bottom: 0; border-top: 3px solid transparent; padding: 9px 1px; font-size: 13px; flex: 1; white-space: nowrap; min-width: 0; }
     nav.tabs button.active { color: var(--brand); border-top-color: var(--brand); }
     .kpi .value { font-size: 20px; }
     .hbar a.back { display: none; }
@@ -149,6 +151,23 @@
   details summary .l { flex: 1; }
   details .scroll { margin-bottom: 10px; }
   a.more { font-size: 12.5px; color: var(--series-1); text-decoration: none; }
+  /* simulator */
+  .simctl { margin: 10px 0 12px; }
+  .simctl label { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; margin-bottom: 4px; }
+  .simctl strong { font-weight: 500; }
+  .simctl input[type=range] { width: 100%; accent-color: var(--series-1); height: 28px; }
+  .simrange { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); margin-top: -4px; }
+  label.chk { display: flex; gap: 8px; align-items: center; font-size: 13.5px; margin-top: 6px; }
+  .simres { background: var(--surface-2); border-radius: 10px; padding: 10px 12px; }
+  .simres > .num { font-size: 22px; font-weight: 500; }
+  .good-big { color: var(--good); }
+  nav.groups { max-width: 1240px; margin: 0 auto; padding: 0 16px 8px; display: flex; gap: 6px; }
+  nav.groups button { background: rgba(255,255,255,.12); color: #fff; border: 1px solid rgba(255,255,255,.35); border-radius: 999px; padding: 4px 14px; font-size: 13px; }
+  nav.groups button.on { background: #fff; color: var(--brand); border-color: #fff; font-weight: 500; }
+  .toprow { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .xbtn { background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px; font-size: 12.5px; color: var(--text-secondary); white-space: nowrap; }
+  .kind { font-size: 12.5px; color: var(--text-secondary); background: var(--surface-2); border-radius: 8px; padding: 6px 10px; margin: 0 0 12px; }
+  .kind b { font-weight: 500; color: var(--text-primary); }
   @media (forced-colors: active) { .progress > span, .heat .c { forced-color-adjust: none; } }
 </style>
 </head>
@@ -175,16 +194,11 @@
       <a class="back" href="accounting.html">หลังบ้าน</a>
       <button class="linkbtn" id="logout">ออก</button>
     </div>
-    <nav class="tabs" role="tablist">
-      <button data-tab="overview" class="active">ภาพรวม</button>
-      <button data-tab="sales">ยอดขาย</button>
-      <button data-tab="menu">เมนู</button>
-      <button data-tab="pnl">งบกำไร</button>
-      <button data-tab="balance">งบดุล</button>
-    </nav>
+    <nav class="groups" aria-label="ประเภทบัญชี"><button data-group="mgmt">บัญชีบริหาร</button><button data-group="fin">บัญชีการเงิน</button></nav>
+    <nav class="tabs" role="tablist"></nav>
   </header>
   <main>
-    <p class="fresh" id="fresh"></p>
+    <div class="toprow"><p class="fresh" id="fresh"></p><button class="xbtn" id="export" title="ดาวน์โหลดทุกตารางในหน้านี้เป็นไฟล์ Excel">⬇ Excel หน้านี้</button></div>
     <div id="view" class="loading">กำลังโหลดข้อมูล…</div>
   </main>
 </div>
@@ -202,7 +216,7 @@ const MOCK_URL = IS_LOCAL ? new URLSearchParams(location.search).get('mock') : n
 const TH_MONTH = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 const TH_DAY = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
 const D = {};            // loaded data
-let state = { tab: 'overview', month: null, salesRange: 3, menuRange: 'month', menuSort: 'profit', goalLevel: 2 };
+let state = { tab: 'overview', month: null, salesRange: 3, menuRange: 'month', menuSort: 'profit', goalLevel: 1 };
 try { const g = Number(localStorage.getItem('bb-dash-goal')); if (g >= 1 && g <= 4) state.goalLevel = g; } catch (_) {}
 let charts = [];
 
@@ -252,8 +266,8 @@ async function fetchAll(table, select = '*', order) {
 }
 
 async function loadData() {
-  if (MOCK_URL) D.__mock = await (await fetch(MOCK_URL)).json();
-  const [daily, hourly, menuSales, optionSales, fixedItems, settings, closures, expenseItems, categories, menuCosts, expenses, assets, liabilities, accounts, targets, balances, ownerEntries] = await Promise.all([
+  if (MOCK_URL) D.__mock = await (await fetch(MOCK_URL, { cache: 'no-store' })).json();
+  const [daily, hourly, menuSales, optionSales, fixedItems, settings, closures, expenseItems, categories, menuCosts, expenses, assets, liabilities, accounts, targets, balances, ownerEntries, liabPayments, promos, invCounts] = await Promise.all([
     fetchAll('v_sales_daily', '*', 'business_date'),
     fetchAll('v_sales_hourly', '*'),
     fetchAll('v_menu_sales', '*'),
@@ -264,15 +278,19 @@ async function loadData() {
     fetchAll('expense_items', 'expense_id,line_total,category_id'),
     fetchAll('expense_categories', 'id,key,label_th,group_key,sort_order'),
     fetchAll('menu_costs', '*'),
-    fetchAll('expenses', 'id,expense_date,amount,payment_account_id'),
-    fetchAll('assets', 'id,name,category,purchase_price,purchase_date,useful_life_months,status,disposed_date'),
+    fetchAll('expenses', 'id,expense_no,expense_date,accrual_month,amount,payment_account_id'),
+    fetchAll('assets', 'id,name,category,purchase_price,purchase_date,in_service_date,useful_life_months,status,disposed_date,payment_account_id'),
     fetchAll('liabilities', 'id,creditor_type,creditor_name,original_amount,paid_amount,status'),
     fetchAll('payment_accounts', 'id,key,label_th,sort_order,active'),
     fetchAll('monthly_targets', '*'),
     fetchAll('account_balances', '*'),
     fetchAll('owner_account_entries', '*'),
+    fetchAll('liability_payments', 'id,liability_id,payment_date,amount,payment_account_id'),
+    fetchAll('pos_promotions', '*').catch(() => []),
+    fetchAll('inventory_counts', '*').catch(() => []),
   ]);
-  Object.assign(D, { daily, hourly, menuSales, optionSales, fixedItems, settings, closures, expenseItems, categories, menuCosts, expenses, assets, liabilities, accounts, targets, balances, ownerEntries });
+  Object.assign(D, { daily, hourly, menuSales, optionSales, fixedItems, settings, closures, expenseItems, categories, menuCosts, expenses, assets, liabilities, accounts, targets, balances, ownerEntries, liabPayments, promos, invCounts });
+  D.shopAcct = new Set(D.accounts.filter(a => a.key !== 'owner_advance').map(a => a.id));   // money that belongs to the shop
   D.closureMap = Object.fromEntries(D.closures.map(c => [c.closed_date, c.reason || 'หยุดพิเศษ']));
   D.catById = Object.fromEntries(D.categories.map(c => [c.id, c]));
   D.itemsByExpense = new Map();
@@ -312,16 +330,20 @@ function costFor(menuName, temp) {
 function monthDays(m) { return D.daily.filter(r => ym(r.business_date) === m); }
 function salesOfMonth(m) {
   const rows = monthDays(m);
-  const s = { store: 0, grab: 0, grabApp: 0, cups: 0, storeCups: 0, grabCups: 0, grabOrders: 0, bills: 0, gov: 0, openDays: 0, free: 0 };
+  const s = { store: 0, grab: 0, grabApp: 0, lineman: 0, lmApp: 0, lmOrders: 0, cups: 0, storeCups: 0, grabCups: 0, grabOrders: 0, bills: 0, gov: 0, openDays: 0, free: 0 };
   for (const r of rows) {
     s.store += num(r.store_net); s.grab += num(r.grab_net); s.grabApp += num(r.grab_app_amount);
+    s.lineman += num(r.lineman_net); s.lmApp += num(r.lineman_app_amount); s.lmOrders += num(r.lineman_orders);
     s.storeCups += num(r.store_cups); s.grabCups += num(r.grab_pos_cups); s.grabOrders += num(r.grab_orders);
     s.bills += num(r.store_bills); s.gov += num(r.gov_net); s.free += num(r.free_cups);
-    if (num(r.store_bills) > 0 || num(r.grab_orders) > 0) s.openDays++;
+    if (num(r.store_bills) > 0 || num(r.grab_orders) > 0 || num(r.lineman_orders) > 0) s.openDays++;
   }
-  s.total = s.store + s.grab; s.cups = s.storeCups + s.grabCups;
+  s.walk = s.store - s.gov; if (!s.lmApp) s.lmApp = s.lineman;   // Lineman: no report imported yet -> 0
+  s.total = s.store + s.grab + s.lineman; s.cups = s.storeCups + s.grabCups;
   return s;
 }
+function depStart(a) { return a.in_service_date || a.purchase_date; }   // depreciation starts when the asset is ready to use
+function expMonth(e) { return ym(e.accrual_month || e.expense_date); }    // P&L month (accrual); cash flow uses expense_date
 function monthIndex(dStr) { const [y, m] = dStr.split('-').map(Number); return y * 12 + (m - 1); }
 function depreciationOfMonth(m) {
   // straight line, whole months (same rule as accounting.html assetDepreciation)
@@ -329,7 +351,7 @@ function depreciationOfMonth(m) {
   let total = 0;
   for (const a of D.assets) {
     const life = num(a.useful_life_months); if (!(life > 0)) continue;
-    const start = monthIndex(a.purchase_date);
+    const start = monthIndex(depStart(a));
     const endIdx = a.status === 'disposed' && a.disposed_date ? monthIndex(a.disposed_date) : Infinity;
     if (mi >= start && mi < start + life && mi < endIdx) total += num(a.purchase_price) / life;
   }
@@ -338,7 +360,7 @@ function depreciationOfMonth(m) {
 function assetValue(a, asOf) {
   const life = num(a.useful_life_months), price = num(a.purchase_price);
   if (!(life > 0)) return { acc: 0, book: price };
-  const el = Math.max(0, Math.min(life, monthIndex(asOf) - monthIndex(a.purchase_date)));
+  const el = Math.max(0, Math.min(life, monthIndex(asOf) - monthIndex(depStart(a))));
   const acc = price / life * el; return { acc, book: price - acc };
 }
 // weekly closed day: Monday until Jul 2026, Friday from Aug 2026 (Reporting-Direction §4)
@@ -360,7 +382,7 @@ function fixedPlanned(m) {
 function expenseByCat(m) {
   const out = {};
   for (const e of D.expenses) {
-    if (ym(e.expense_date) !== m) continue;
+    if (expMonth(e) !== m) continue;
     const items = D.itemsByExpense.get(e.id) || []; let sum = 0;
     for (const it of items) { const k = D.catById[it.category_id]?.key || '_none'; out[k] = (out[k] || 0) + num(it.line_total); sum += num(it.line_total); }
     const rest = num(e.amount) - sum; if (Math.abs(rest) > 0.5) out._none = (out._none || 0) + rest;
@@ -371,8 +393,27 @@ function pnlOfMonth(m) {
   const s = salesOfMonth(m), cats = expenseByCat(m);
   const groupOf = k => k === '_none' ? 'other' : (D.categories.find(c => c.key === k)?.group_key || 'other');
   let variable = 0, opex = 0; for (const [k, v] of Object.entries(cats)) { if (groupOf(k) === 'variable') variable += v; else opex += v; }
-  const dep = depreciationOfMonth(m), gross = s.total - variable;
-  return { s, cats, variable, opex, dep, gross, net: gross - opex - dep };
+  const dep = depreciationOfMonth(m), grabFee = s.grabApp - s.grab, lmFee = s.lmApp - s.lineman, revenue = s.walk + s.gov + s.grabApp + s.lmApp;
+  const inv = stockAdj(m);   // opening − closing stock value (0 until month-end counts exist)
+  const gross = revenue - grabFee - lmFee - variable - inv.adj;
+  return { s, cats, variable, opex, dep, grabFee, lmFee, revenue, inv, gross, net: gross - opex - dep };
+}
+function stockValue(dateLt) {   // latest count before the date
+  const dates = [...new Set(D.invCounts.map(c => c.count_date))].filter(d => d < dateLt).sort();
+  const d = dates[dates.length - 1]; if (!d) return null;
+  return { date: d, value: D.invCounts.filter(c => c.count_date === d).reduce((t, c) => t + num(c.value), 0) };
+}
+function stockAdj(m) {
+  const open = stockValue(m + '-01'), close = stockValue(addMonths(m, 1) + '-01');
+  if (!open || !close || open.date === close.date) return { adj: 0, open, close };
+  return { adj: open.value - close.value, open, close };
+}
+// every month with any activity (sales, expenses, depreciation) up to m
+function allMonths(m) {
+  let lo = D.months[0] || m;
+  for (const e of D.expenses) { const x = expMonth(e); if (x < lo) lo = x; }
+  const out = []; for (let x = lo; x <= m; x = addMonths(x, 1)) out.push(x);
+  return out;
 }
 function grossRatio(m) {
   // actual gross margin of the last 3 complete months up to m (trial month May 2026 and the month still in progress excluded)
@@ -381,7 +422,7 @@ function grossRatio(m) {
   let rev = 0, gross = 0; for (const x of ms) { const p = pnlOfMonth(x); rev += p.s.total; gross += p.gross; }
   return { ratio: rev > 0 ? gross / rev : null, months: ms };
 }
-function opexOfMonth(m) { return D.expenses.filter(e => ym(e.expense_date) === m).reduce((t, e) => t + num(e.amount), 0); }
+function opexOfMonth(m) { return D.expenses.filter(e => expMonth(e) === m).reduce((t, e) => t + num(e.amount), 0); }
 function targetFor(m) {
   const rows = D.targets.filter(t => t.month.slice(0, 7) <= m).sort((a, b) => b.month.localeCompare(a.month));
   return rows[0] || null;
@@ -417,15 +458,32 @@ function baseChartOptions(extra = {}) {
     },
   }, extra);
 }
-function legend(items) { return `<div class="legend">${items.map(([c, t, sq]) => `<span class="${sq ? 'sq' : ''}" style="--c:${c}">${esc(t)}</span>`).join('')}</div>`; }
+// channel labels: GRAB / LINEMAN as green badges, government schemes in blue (owner request 2026-11-28)
+const CH = { grab: '<span class="ch">GRAB</span>', lm: '<span class="ch">LINEMAN</span>', gov: '<span class="ch-gov">โครงการรัฐ</span>' };
+const CHC = { walk: '--series-2', grab: '--series-3', gov: '--series-1', lm: '--series-4' };   // chart colour per channel
+function legend(items) { return `<div class="legend">${items.map(([c, t, sq, html]) => `<span class="${sq ? 'sq' : ''}" style="--c:${c}">${html ? t : esc(t)}</span>`).join('')}</div>`; }
 
+const TABS = {
+  mgmt: [['overview', 'ภาพรวม'], ['sales', 'ยอดขาย'], ['menu', 'เมนู'], ['waste', 'ของเสีย'], ['sim', 'คืนทุน']],
+  fin: [['pnl', 'กำไรขาดทุน'], ['balance', 'งบดุล'], ['cash', 'กระแสเงินสด'], ['assets', 'ทรัพย์สิน']],
+};
+const KIND = {
+  mgmt: '<b>บัญชีบริหาร</b> — ใช้วางแผนและตัดสินใจ ตัวเลขจริงผสมเป้าหมายและสมมติฐาน (เงินเดือนเป้า, ต้นทุนตามสูตร, การจำลอง)',
+  fin: '<b>บัญชีการเงิน</b> — ตัวเลขที่เกิดขึ้นจริงจากยอดขาย บิล ทรัพย์สิน และหนี้ ไม่มีเป้าหมายหรือสมมติฐานปน (ยกเว้นค่าเสื่อมตามอายุใช้งาน)',
+};
+function groupOfTab(t) { return TABS.fin.some(x => x[0] === t) ? 'fin' : 'mgmt'; }
 function render() {
   destroyCharts(); hideTip();
-  document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === state.tab));
+  if (![...TABS.mgmt, ...TABS.fin].some(x => x[0] === state.tab)) state.tab = 'overview';
+  const g = groupOfTab(state.tab);
+  document.querySelectorAll('nav.groups button').forEach(b => b.classList.toggle('on', b.dataset.group === g));
+  $('nav.tabs').innerHTML = TABS[g].map(([k, t]) => `<button data-tab="${k}" class="${k === state.tab ? 'active' : ''}">${t}</button>`).join('');
   const fresh = [`ยอดขายถึง ${thDate(D.lastSale)}`, `รายจ่ายบันทึกถึง ${thDate(D.lastExpense)}`];
   $('#fresh').textContent = fresh.join(' · ') + ' — นำเข้ายอดขายจาก POS/Grab ตอนปิดเดือน';
   const v = $('#view'); v.className = '';
-  ({ overview: renderOverview, sales: renderSales, menu: renderMenu, pnl: renderPnl, balance: renderBalance })[state.tab](v);
+  ({ overview: renderOverview, sales: renderSales, menu: renderMenu, waste: renderWaste, sim: renderSim, pnl: renderPnl, balance: renderBalance, cash: renderCash, assets: renderAssets })[state.tab](v);
+  v.insertAdjacentHTML('afterbegin', `<p class="kind">${KIND[g]}</p>`);
+  v.querySelectorAll('.scroll').forEach(el => { if (el.querySelector('table.pnl')) el.scrollLeft = el.scrollWidth; });   // month tables open at the latest month
   window.scrollTo({ top: 0 });
 }
 
@@ -440,6 +498,7 @@ function renderOverview(v) {
   const storeDay = s.openDays ? s.store / s.openDays : 0;
   const expenseLag = D.lastExpense && D.lastExpense < (D.lastSale || '') && D.lastExpense.slice(0, 7) <= m;
   const lad = ladder(m);
+  const avgMonths = grossRatio(m).months, avgNet = avgMonths.length ? avgMonths.reduce((t, x) => t + pnlOfMonth(x).net, 0) / avgMonths.length : 0;
   const L = lad ? lad.levels[state.goalLevel] || lad.levels[2] : null;
   const goal = L ? L.perDay : null;
 
@@ -467,38 +526,37 @@ function renderOverview(v) {
     <div class="grid kpis">
       <div class="card kpi"><div class="label">ยอดขายรวม</div><div class="value num">${baht(s.total)} ฿</div>${isCurrent && s.openDays < daysPlan ? deltaHtml(perDay, p.openDays ? p.total / p.openDays : 0, 'ต่อวันเปิด เทียบเดือนก่อน') : deltaHtml(s.total, p.total, 'เทียบเดือนก่อน')}</div>
       <div class="card kpi"><div class="label">แก้ว (หน้าร้าน + Grab)</div><div class="value num">${nf0.format(s.cups)}</div><div class="delta">${s.openDays ? nf1.format(s.cups / s.openDays) : '–'} แก้ว/วันเปิด</div></div>
-      <div class="card kpi"><div class="label">กำไรสุทธิ (หลังค่าเสื่อม)</div><div class="value num ${profit < 0 ? 'neg' : ''}">${baht(profit)} ฿</div><div class="delta">รายจ่าย ${baht(opex)} · ค่าเสื่อม ${baht(dep)}</div></div>
+      <div class="card kpi"><div class="label">กำไรสุทธิ (หลังค่าเสื่อม)</div><div class="value num ${profit < 0 ? 'neg' : ''}">${baht(profit)} ฿</div><div class="delta">เฉลี่ย ${avgMonths.map(monthLabel).join(', ').replace(/ \d\d(?=,)/g, '')} <span class="num ${avgNet < 0 ? 'neg' : ''}">${baht(avgNet)}</span>/เดือน · <a class="more" href="#" data-goto="pnl">งบกำไร →</a></div></div>
       <div class="card kpi"><div class="label">ยอดหน้าร้านต่อวันเปิด</div><div class="value num">${baht(storeDay)} ฿</div><div class="delta">เปิด ${s.openDays} วัน${goal ? ` · เป้า ${baht(goal)}` : ''} · รวม Grab ${baht(perDay)}</div></div>
     </div>
     <div class="card" style="margin-bottom:12px">${goalHtml}</div>
     <div class="grid two">
-      <div class="card"><h2>ยอดขายรายวัน</h2><p class="sub">${monthLabelLong(m)} · หน้าร้าน (POS) และ Grab (เงินเข้าสุทธิ)</p>
-        ${legend([[css('--series-1'), 'หน้าร้าน', 1], [css('--series-2'), 'Grab', 1]].concat(goal ? [[css('--text-primary'), 'เป้าหน้าร้าน/วัน']] : []))}
+      <div class="card"><h2>ยอดขายรายวัน</h2><p class="sub">${monthLabelLong(m)} · หน้าร้าน / โครงการรัฐ จาก POS · Grab / Lineman = เงินเข้าสุทธิ · เส้นเป้านับหน้าร้านรวมโครงการรัฐ</p>
+        ${legend(channelLegend(s).concat(goal ? [[css('--text-primary'), 'เป้าหน้าร้าน/วัน']] : []))}
         <div class="chart-box"><canvas id="c-daily"></canvas></div></div>
       <div class="card"><h2>สรุปเดือน ${monthLabelLong(m)}</h2><p class="sub">กำไร = รายรับ − รายจ่ายที่บันทึก − ค่าเสื่อม (ไม่นับการจ่ายคืนหนี้)</p>
         <div class="lines num">
-          <div><span>หน้าร้าน (POS)</span><span>${baht(s.store)}</span></div>
-          <div><span>&nbsp;&nbsp;ในนั้นโครงการรัฐ</span><span>${baht(s.gov)}</span></div>
-          <div><span>Grab เงินเข้าสุทธิ (${nf0.format(s.grabOrders)} ออเดอร์)</span><span>${baht(s.grab)}</span></div>
+          <div><span>หน้าร้าน</span><span>${baht(s.walk)}</span></div>
+          <div><span>${CH.gov} (ไทยช่วยไทย / คนละครึ่ง)</span><span>${baht(s.gov)}</span></div>
+          <div><span>${CH.grab} เงินเข้าสุทธิ (${nf0.format(s.grabOrders)} ออเดอร์)</span><span>${baht(s.grab)}</span></div>
+          <div><span>${CH.lm} เงินเข้าสุทธิ${s.lmOrders ? ` (${nf0.format(s.lmOrders)} ออเดอร์)` : ''}</span><span>${s.lineman ? baht(s.lineman) : '<span style="color:var(--text-muted)">ยังไม่มีข้อมูล</span>'}</span></div>
           <div class="total"><span>รายรับรวม</span><span>${baht(s.total)}</span></div>
           <div><span>รายจ่ายที่บันทึก</span><span>−${baht(opex)}</span></div>
           <div><span>ค่าเสื่อมทรัพย์สิน</span><span>−${baht(dep)}</span></div>
           <div class="total"><span>กำไรสุทธิ</span><span class="${profit < 0 ? 'neg' : ''}">${baht(profit)}</span></div>
         </div>
-        <p class="sub" style="margin-top:10px">สัดส่วน Grab ${pct(s.total ? s.grab / s.total : null)} ของรายรับ · กำไรขั้นต้นเฉลี่ย ${con.perCup ? nf1.format(con.perCup) : '–'} ฿/แก้ว (ตามสูตร 3 เดือนล่าสุด) · แก้วแจก/ทดสอบ ${nf0.format(s.free)}</p>
+        <p class="sub" style="margin-top:10px">สัดส่วน หน้าร้าน ${pct(s.total ? s.walk / s.total : null)} · โครงการรัฐ ${pct(s.total ? s.gov / s.total : null)} · Grab ${pct(s.total ? s.grab / s.total : null)} · Lineman ${pct(s.total ? s.lineman / s.total : null)} · กำไรขั้นต้นเฉลี่ย ${con.perCup ? nf1.format(con.perCup) : '–'} ฿/แก้ว (ตามสูตร 3 เดือนล่าสุด) · แก้วแจก/ทดสอบ ${nf0.format(s.free)}</p>
       </div>
     </div>`;
 
   const rows = monthDays(m), byDate = Object.fromEntries(rows.map(r => [r.business_date, r]));
-  const n = daysInMonth(m), labels = [], store = [], grab = [];
+  const n = daysInMonth(m), labels = [], walk = [], gov = [], grab = [], lm = [];
   for (let d = 1; d <= n; d++) {
     const ds = `${m}-${String(d).padStart(2, '0')}`; const r = byDate[ds];
-    labels.push(d); store.push(r ? num(r.store_net) : null); grab.push(r ? num(r.grab_net) : null);
+    labels.push(d); walk.push(r ? num(r.store_net) - num(r.gov_net) : null); gov.push(r ? num(r.gov_net) : null); grab.push(r ? num(r.grab_net) : null); lm.push(r && num(r.lineman_net) ? num(r.lineman_net) : null);
   }
-  const ds = [
-    { type: 'bar', label: 'หน้าร้าน', data: store, backgroundColor: css('--series-1'), stack: 's', borderRadius: 4, borderSkipped: 'start', borderColor: css('--surface-1'), borderWidth: { top: 2 }, maxBarThickness: 18 },
-    { type: 'bar', label: 'Grab', data: grab, backgroundColor: css('--series-2'), stack: 's', borderRadius: 4, borderSkipped: 'start', borderColor: css('--surface-1'), borderWidth: { top: 2 }, maxBarThickness: 18 },
-  ];
+  const bar = (label, data, c) => ({ type: 'bar', label, data, backgroundColor: css(c), stack: 's', borderRadius: 3, borderSkipped: 'start', borderColor: css('--surface-1'), borderWidth: { top: 2 }, maxBarThickness: 18 });
+  const ds = [bar('หน้าร้าน', walk, CHC.walk), bar('โครงการรัฐ', gov, CHC.gov), bar('Grab', grab, CHC.grab), bar('Lineman', lm, CHC.lm)];
   if (goal) ds.push({ type: 'line', label: 'เป้าหน้าร้าน/วัน', data: labels.map(() => goal), borderColor: css('--text-primary'), borderWidth: 2, borderDash: [5, 4], pointRadius: 0, pointHoverRadius: 0 });
   charts.push(new Chart($('#c-daily'), {
     data: { labels, datasets: ds },
@@ -509,10 +567,14 @@ function renderOverview(v) {
           footer: it => { const tot = it.filter(x => x.dataset.type === 'bar').reduce((t, x) => t + (x.raw || 0), 0); return `รวม ${baht(tot)} ฿`; } } }) }),
     }),
   }));
+  v.querySelectorAll('[data-goto]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); state.tab = a.dataset.goto; render(); }));
   const sg = $('#seg-goal');
   if (sg) sg.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; state.goalLevel = Number(b.dataset.k); try { localStorage.setItem('bb-dash-goal', b.dataset.k); } catch (_) {} render(); });
 }
 
+function channelLegend(s) {
+  return [[css(CHC.walk), 'หน้าร้าน', 1], [css(CHC.gov), CH.gov, 1, 1], [css(CHC.grab), CH.grab, 1, 1], [css(CHC.lm), CH.lm + (s && !s.lineman ? ' <span style="color:var(--text-muted)">ยังไม่มีข้อมูล</span>' : ''), 1, 1]];
+}
 // milestone ladder (Reporting-Direction §10): store sales per open day needed for each level
 const LEVELS = [
   { id: 0, short: 'ค่าใช้จ่ายครบ', parts: [] },
@@ -547,10 +609,11 @@ function ladder(m) {
 function renderSales(v) {
   const months = D.months.filter(x => x <= state.month);
   const last = months.slice(-state.salesRange);
+  const ms = months.map(salesOfMonth);
   v.innerHTML = `
     <div class="grid two">
-      <div class="card"><h2>ยอดขายรายเดือน</h2><p class="sub">หน้าร้าน + Grab เงินเข้าสุทธิ · พ.ค. คือเดือนทดลองเปิด</p>
-        ${legend([[css('--series-1'), 'หน้าร้าน', 1], [css('--series-2'), 'Grab', 1]])}
+      <div class="card"><h2>ยอดขายรายเดือน</h2><p class="sub">หน้าร้าน / โครงการรัฐ / Grab และ Lineman (เงินเข้าสุทธิ) · พ.ค. คือเดือนทดลองเปิด</p>
+        ${legend(channelLegend(ms.reduce((a, x) => ({ lineman: a.lineman + x.lineman }), { lineman: 0 })))}
         <div class="chart-box"><canvas id="c-month"></canvas></div></div>
       <div class="card"><h2>แก้วต่อวันเปิด</h2><p class="sub">หน้าร้าน + บิล Grab ใน POS ÷ วันที่มียอดขาย</p>
         <div class="chart-box"><canvas id="c-cups"></canvas></div></div>
@@ -562,20 +625,21 @@ function renderSales(v) {
     </div>
     <div class="grid two" style="margin-top:12px">
       <div class="card"><h2>วันในสัปดาห์</h2><p class="sub">ยอดเฉลี่ยต่อวันเปิด · ${last.map(monthLabel).join(', ')}</p>
-        ${legend([[css('--series-1'), 'หน้าร้าน', 1], [css('--series-2'), 'Grab', 1]])}
+        ${legend([[css(CHC.walk), 'หน้าร้าน', 1], [css(CHC.grab), CH.grab, 1, 1]])}
         <div class="chart-box"><canvas id="c-wd"></canvas></div></div>
-      <div class="card"><h2>ทดสอบเวลา Grab เสาร์–อาทิตย์</h2><p class="sub">ช่วงเช้าเสาร์–อาทิตย์ต่อวันเปิด · เริ่มทดสอบ Grab 10:30 ใน พ.ย. 2569 · ฐานเทียบ = ส.ค.–ต.ค.</p>
+      <div class="card"><h2>ทดสอบเวลา ${CH.grab} เสาร์–อาทิตย์</h2><p class="sub">ช่วงเช้าเสาร์–อาทิตย์ต่อวันเปิด · เริ่มทดสอบ Grab 10:30 ใน พ.ย. 2569 · ฐานเทียบ = ส.ค.–ต.ค.</p>
         <div class="scroll" id="wk"></div></div>
     </div>`;
 
   $('#seg-range').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; state.salesRange = Number(b.dataset.k); render(); setTab('sales'); });
 
-  const ms = months.map(salesOfMonth);
   const o = baseChartOptions(); o.scales.x.stacked = true; o.scales.y.stacked = true;
   o.plugins.tooltip.callbacks = { label: c => ` ${c.dataset.label}: ${baht(c.raw)} ฿`, footer: it => `รวม ${baht(it.reduce((t, x) => t + x.raw, 0))} ฿` };
   charts.push(new Chart($('#c-month'), { type: 'bar', data: { labels: months.map(monthLabel), datasets: [
-    { label: 'หน้าร้าน', data: ms.map(s => Math.round(s.store)), backgroundColor: css('--series-1'), borderRadius: 4, borderSkipped: 'start', borderColor: css('--surface-1'), borderWidth: { top: 2 }, maxBarThickness: 44 },
-    { label: 'Grab', data: ms.map(s => Math.round(s.grab)), backgroundColor: css('--series-2'), borderRadius: 4, borderSkipped: 'start', borderColor: css('--surface-1'), borderWidth: { top: 2 }, maxBarThickness: 44 }] }, options: o }));
+    { label: 'หน้าร้าน', data: ms.map(s => Math.round(s.walk)), backgroundColor: css(CHC.walk), borderRadius: 3, borderSkipped: 'start', borderColor: css('--surface-1'), borderWidth: { top: 2 }, maxBarThickness: 44 },
+    { label: 'โครงการรัฐ', data: ms.map(s => Math.round(s.gov)), backgroundColor: css(CHC.gov), borderRadius: 3, borderSkipped: 'start', borderColor: css('--surface-1'), borderWidth: { top: 2 }, maxBarThickness: 44 },
+    { label: 'Grab', data: ms.map(s => Math.round(s.grab)), backgroundColor: css(CHC.grab), borderRadius: 3, borderSkipped: 'start', borderColor: css('--surface-1'), borderWidth: { top: 2 }, maxBarThickness: 44 },
+    { label: 'Lineman', data: ms.map(s => Math.round(s.lineman)), backgroundColor: css(CHC.lm), borderRadius: 3, borderSkipped: 'start', borderColor: css('--surface-1'), borderWidth: { top: 2 }, maxBarThickness: 44 }] }, options: o }));
 
   const o2 = baseChartOptions(); o2.plugins.tooltip.callbacks = { label: c => ` ${nf1.format(c.raw)} แก้ว/วัน (${ms[c.dataIndex].openDays} วันเปิด)` };
   charts.push(new Chart($('#c-cups'), { type: 'line', data: { labels: months.map(monthLabel), datasets: [
@@ -617,8 +681,8 @@ function renderSales(v) {
   const o3 = baseChartOptions(); o3.scales.x.stacked = true; o3.scales.y.stacked = true;
   o3.plugins.tooltip.callbacks = { label: c => ` ${c.dataset.label}: ${baht(c.raw)} ฿`, footer: it => `รวม ${baht(it.reduce((t, x) => t + x.raw, 0))} ฿ · ${wd[it[0].dataIndex].n} วันเปิด` };
   charts.push(new Chart($('#c-wd'), { type: 'bar', data: { labels: order.map(w => TH_DAY[w]), datasets: [
-    { label: 'หน้าร้าน', data: wd.map(x => Math.round(x.st)), backgroundColor: css('--series-1'), borderRadius: 4, borderSkipped: 'start', borderColor: css('--surface-1'), borderWidth: { top: 2 }, maxBarThickness: 40 },
-    { label: 'Grab', data: wd.map(x => Math.round(x.gr)), backgroundColor: css('--series-2'), borderRadius: 4, borderSkipped: 'start', borderColor: css('--surface-1'), borderWidth: { top: 2 }, maxBarThickness: 40 }] }, options: o3 }));
+    { label: 'หน้าร้าน', data: wd.map(x => Math.round(x.st)), backgroundColor: css(CHC.walk), borderRadius: 4, borderSkipped: 'start', borderColor: css('--surface-1'), borderWidth: { top: 2 }, maxBarThickness: 40 },
+    { label: 'Grab', data: wd.map(x => Math.round(x.gr)), backgroundColor: css(CHC.grab), borderRadius: 4, borderSkipped: 'start', borderColor: css('--surface-1'), borderWidth: { top: 2 }, maxBarThickness: 40 }] }, options: o3 }));
 
   // weekend morning tracker
   const wkRow = ms_ => { let days = 0, cups = 0, grab = 0; const dset = new Set();
@@ -704,11 +768,11 @@ function renderOptions(months) {
     const el = $('#opt-' + kind);
     if (!rows.length) { el.innerHTML = '<p class="sub">ไม่มีข้อมูลตัวเลือกนี้ในช่วงที่เลือก</p>'; continue; }
     const max = Math.max(...rows.map(r => r.store + r.grab));
-    el.innerHTML = `${legend([[css('--series-1'), 'หน้าร้าน', 1], [css('--series-2'), 'Grab', 1]])}<div class="bars">` + rows.map(r => {
+    el.innerHTML = `${legend([[css(CHC.walk), 'หน้าร้าน', 1], [css(CHC.grab), CH.grab, 1, 1]])}<div class="bars">` + rows.map(r => {
       const tot = r.store + r.grab;
       return `<div class="barrow" tabindex="0" data-tip="${esc(`<strong>${nf0.format(tot)} แก้ว</strong> (${pct(tot / total)})<br>หน้าร้าน ${nf0.format(r.store)} · Grab ${nf0.format(r.grab)}`)}">
         <div class="bl">${esc(r.name)}${r.detail ? ` <span class="tag">${esc(r.detail)}</span>` : ''}</div>
-        <div class="bt"><span style="width:${r.store / max * 100}%;background:var(--series-1)"></span><span style="width:${r.grab / max * 100}%;background:var(--series-2)"></span></div>
+        <div class="bt"><span style="width:${r.store / max * 100}%;background:var(${CHC.walk})"></span><span style="width:${r.grab / max * 100}%;background:var(${CHC.grab})"></span></div>
         <div class="bv num">${nf0.format(tot)} <small>${pct(tot / total)}</small></div></div>`;
     }).join('') + '</div>';
     el.addEventListener('pointermove', e => { const b = e.target.closest('.barrow'); if (b) showTip(b.dataset.tip, e.clientX, e.clientY); });
@@ -729,21 +793,24 @@ function renderOptions(months) {
 
 // ---------- P&L ----------
 function renderPnl(v) {
-  const months = D.months.filter(x => x <= state.month);
+  const months = allMonths(state.month);   // includes pre-opening months (setup costs before sales)
   const P = months.map(pnlOfMonth);
   const catLabel = k => k === '_none' ? 'ไม่ระบุหมวด' : (D.categories.find(c => c.key === k)?.label_th || k);
   const keysOf = grp => { const ks = new Set(); P.forEach(p => Object.keys(p.cats).forEach(k => { const g = k === '_none' ? 'other' : (D.categories.find(c => c.key === k)?.group_key || 'other'); if (g === grp || (grp === 'opex' && g !== 'variable')) ks.add(k); })); return [...ks].sort((a, b) => (D.categories.find(c => c.key === a)?.sort_order ?? 999) - (D.categories.find(c => c.key === b)?.sort_order ?? 999)); };
   const money = (label, f, cls = '') => `<tr class="${cls}"><td>${label}</td>${P.map((p, i) => { const x = f(p); return `<td class="r ${months[i] === state.month ? 'sel' : ''} ${x < 0 ? 'neg' : ''}">${x == null ? '' : baht(x)}</td>`; }).join('')}</tr>`;
   const cost = (label, f) => `<tr><td>&nbsp;&nbsp;${esc(label)}</td>${P.map((p, i) => { const x = f(p); return `<td class="r ${months[i] === state.month ? 'sel' : ''}">${x ? '−' + baht(x) : ''}</td>`; }).join('')}</tr>`;
+  const costH = (label, f) => `<tr><td>&nbsp;&nbsp;${label}</td>${P.map((p, i) => { const x = f(p); return `<td class="r ${months[i] === state.month ? 'sel' : ''}">${x ? '−' + baht(x) : ''}</td>`; }).join('')}</tr>`;
   const head = `<tr class="grp"><td colspan="${months.length + 1}">`;
-  const t = targetFor(state.month); const salaryT = t ? num(t.owner_salary_target) : 0;
+  const lad = ladder(state.month), lvl = lad ? lad.levels[state.goalLevel] || lad.levels[1] : null;
+  const salaryT = lvl ? (lvl.parts.includes('salary_low') ? setting('salary_low') : lvl.parts.includes('salary_target') ? setting('salary_target') : 0) || 0 : num(targetFor(state.month)?.owner_salary_target);
   let html = `<table class="num pnl"><thead><tr><th>รายการ (บาท)</th>${months.map(x => `<th class="r ${x === state.month ? 'sel' : ''}">${monthLabel(x)}</th>`).join('')}</tr></thead><tbody>`;
-  html += head + 'รายรับ</td></tr>' + money('&nbsp;&nbsp;หน้าร้าน (POS)', p => p.s.store) + money('&nbsp;&nbsp;Grab เงินเข้าสุทธิ (หักค่าธรรมเนียมแล้ว)', p => p.s.grab) + money('รายรับรวม', p => p.s.total, 'sum');
-  html += head + 'ต้นทุนผันแปร (ซื้อวัตถุดิบ/บรรจุภัณฑ์ ตามบิลที่ลง)</td></tr>' + keysOf('variable').map(k => cost(catLabel(k), p => p.cats[k] || 0)).join('');
-  html += money('กำไรขั้นต้น', p => p.gross, 'sum') + `<tr><td>&nbsp;&nbsp;% ของรายรับ</td>${P.map((p, i) => `<td class="r ${months[i] === state.month ? 'sel' : ''}">${p.s.total ? pct(p.gross / p.s.total) : ''}</td>`).join('')}</tr>`;
+  html += head + 'รายได้</td></tr>' + money('&nbsp;&nbsp;หน้าร้าน', p => p.s.walk) + money('&nbsp;&nbsp;' + CH.gov, p => p.s.gov) + money('&nbsp;&nbsp;' + CH.grab + ' ยอดขาย (ราคาในแอป)', p => p.s.grabApp) + money('&nbsp;&nbsp;' + CH.lm + ' ยอดขาย (ราคาในแอป)' + (P.some(p => p.s.lmApp) ? '' : ' <span style="color:var(--text-muted)">ยังไม่มีข้อมูล</span>'), p => p.s.lmApp || null) + money('รายได้รวม', p => p.revenue, 'sum');
+  html += head + 'ต้นทุนขาย</td></tr>' + keysOf('variable').map(k => cost(catLabel(k), p => p.cats[k] || 0)).join('') + costH('ค่าธรรมเนียม ' + CH.grab + ' (หักก่อนโอน)', p => p.grabFee) + (P.some(p => p.lmFee) ? costH('ค่าธรรมเนียม ' + CH.lm + ' (หักก่อนโอน)', p => p.lmFee) : '')
+    + (P.some(p => p.inv.adj) ? `<tr><td>&nbsp;&nbsp;ปรับสต็อก (ต้นเดือน − ปลายเดือน)</td>${P.map((p, i) => `<td class="r ${months[i] === state.month ? 'sel' : ''}">${p.inv.adj ? (p.inv.adj > 0 ? '−' : '+') + baht(Math.abs(p.inv.adj)) : ''}</td>`).join('')}</tr>` : '');
+  html += money('กำไรขั้นต้น', p => p.gross, 'sum') + `<tr><td>&nbsp;&nbsp;% ของรายได้</td>${P.map((p, i) => `<td class="r ${months[i] === state.month ? 'sel' : ''}">${p.revenue ? pct(p.gross / p.revenue) : ''}</td>`).join('')}</tr>`;
   html += head + 'ค่าใช้จ่ายดำเนินงาน (ตามบิลที่ลง)</td></tr>' + keysOf('opex').map(k => cost(catLabel(k), p => p.cats[k] || 0)).join('') + cost('ค่าเสื่อมทรัพย์สิน (คำนวณ)', p => p.dep);
   html += money('กำไรสุทธิ', p => p.net, 'sum total');
-  if (salaryT) html += money(`กำไรหลังหักเงินเดือนเป้า ${baht(salaryT)}`, p => p.net - salaryT, 'memo');
+  if (salaryT) html += money(`มุมมองบริหาร: หลังหักเงินเดือนเป้า ${baht(salaryT)}`, p => p.net - salaryT, 'memo');
   html += '</tbody></table>';
 
   const planned = fixedPlanned(state.month), dep = depreciationOfMonth(state.month);
@@ -770,9 +837,9 @@ function renderPnl(v) {
   const monthSel = `<select id="fixed-month" aria-label="เลือกเดือนที่จะดู" style="font-size:12.5px;padding:2px 4px;border-radius:6px;border:1px solid var(--border);background:var(--surface-1)">${[...D.months].reverse().map(x => `<option value="${x}" ${x === fm ? 'selected' : ''}>${monthLabel(x)}</option>`).join('')}</select>`;
 
   v.innerHTML = `
-    <div class="card"><h2>งบกำไรขาดทุนรายเดือน</h2><p class="sub">รายรับจาก POS/Grab · รายจ่ายตามบิลที่ลงในระบบ (นับตอนซื้อ เดือนที่ซื้อของตุนจะดูกำไรน้อยลง) · ค่าเสื่อมคำนวณจากทรัพย์สิน · การจ่ายคืนหนี้ไม่นับเป็นรายจ่าย · พ.ค. = เดือนทดลอง</p>
+    <div class="card"><h2>งบกำไรขาดทุนรายเดือน</h2><p class="sub">รายได้จาก POS และรายงาน Grab (ยอดขายเต็ม แล้วหักค่าธรรมเนียมเป็นต้นทุน) · รายจ่ายลงตามเดือนที่ใช้จริง (เช่นค่าไฟ ต.ค. ที่จ่ายใน พ.ย. อยู่ ต.ค.) · ต้นทุนขายตอนนี้คิดตามบิลซื้อ จนกว่าจะมีสต็อกปลายเดือนจาก POS แล้วจะปรับเป็นต้นทุนที่ใช้จริง · ค่าเสื่อมเริ่มนับตั้งแต่วันเปิดร้าน (22 พ.ค. 2569) · การคืนหนี้และเงินเดือนเจ้าของไม่ใช่รายจ่าย (ดูหน้ากระแสเงินสด) · พ.ค. = เดือนทดลอง</p>
       <div class="scroll">${html}</div></div>
-    <div class="grid two" style="margin-top:12px">
+    <div class="grid" style="margin-top:12px">
       <div class="card"><h2>ต้นทุนคงที่ต่อเดือน</h2><p class="sub">ที่ตั้งไว้ เทียบกับที่จ่ายจริงเฉลี่ย ${last3.map(monthLabel).join(', ')} และเดือนที่เลือก · ▼ เขียว = จ่ายต่ำกว่าที่ตั้ง (ดีแล้ว) · ▲ แดง = เกินที่ตั้ง</p>
         <div class="scroll"><table class="num"><thead><tr><th>รายการ</th><th class="r">ตั้งไว้/เดือน</th><th class="r">จ่ายจริงเฉลี่ย</th><th class="r">${monthSel}</th></tr></thead><tbody>
         ${planned.map(f => { const a = f.category_key ? avgCat(f.category_key) : null; const mo = f.category_key ? (fmCats[f.category_key] || 0) : null;
@@ -780,13 +847,21 @@ function renderPnl(v) {
         <tr><td style="white-space:normal">ค่าเสื่อมทรัพย์สิน (คำนวณจากรายการทรัพย์สิน)</td><td class="r">${baht(dep)}</td><td class="r">${baht(dep)}</td><td class="r">${baht(fmDep)}</td></tr>
         <tr class="sum"><td style="white-space:normal">รวมรายการที่มีบิลให้เทียบ (${comparable.map(f => esc(f.name.replace(/^ค่า/, ''))).concat('ค่าเสื่อม').join(', ')})</td><td class="r">${baht(cPlan)}</td><td class="r">${baht(cAvg)}${cmp(cAvg, cPlan)}</td><td class="r">${baht(cMon)}</td></tr>
         <tr class="sum"><td>รวมต้นทุนคงที่ที่ตั้งไว้</td><td class="r">${baht(fixedSum + dep)}</td><td class="r"></td><td class="r"></td></tr>
-        ${salaryT ? `<tr><td>เงินเดือนเจ้าของ (เป้า)</td><td class="r">${baht(salaryT)}</td><td class="r"></td><td class="r"></td></tr><tr class="sum"><td style="white-space:normal">รวมที่ต้องหาให้ได้ต่อเดือน</td><td class="r">${baht(fixedSum + dep + salaryT)}</td><td class="r"></td><td class="r"></td></tr>` : ''}
+        ${lvl ? `<tr class="grp"><td colspan="4" style="padding-top:12px;font-weight:500;color:var(--text-secondary)">ขั้นเป้าที่เลือก: ${esc(lvl.short)} <span class="sub">(เปลี่ยนได้ที่ปุ่มด้านล่าง หรือหน้าภาพรวม)</span></td></tr>
+          <tr><td>ต้นทุนคงที่ไม่รวมค่าเสื่อม (เงินสด)</td><td class="r">${baht(lad.fixed)}</td><td></td><td></td></tr>
+          <tr><td>ซื้อวัตถุดิบเกินที่ใช้</td><td class="r">${baht(lad.over)}</td><td></td><td></td></tr>
+          ${salaryT ? `<tr><td>เงินเดือนเจ้าของ</td><td class="r">${baht(salaryT)}</td><td></td><td></td></tr>` : ''}
+          ${lvl.parts.includes('owner_debt_repay') ? `<tr><td>คืนหนี้เจ้าของ</td><td class="r">${baht(setting('owner_debt_repay'))}</td><td></td><td></td></tr>` : ''}
+          ${lvl.parts.includes('rent') ? `<tr><td>ค่าเช่า (จำลอง)</td><td class="r">${baht(setting('rent'))}</td><td></td><td></td></tr>` : ''}
+          <tr class="sum"><td style="white-space:normal">เงินสดที่ต้องหาให้ได้ต่อเดือน</td><td class="r">${baht(lvl.need)}</td><td></td><td></td></tr>` : ''}
         </tbody></table></div>
-        <p class="sub" style="margin-top:8px">– = ไม่มีหมวดรายจ่ายให้เทียบ (ค่าเช่า, ค่าขยะ, เมล็ดทิ้งตอน dial-in, รายจ่ายอื่น) · จ่ายจริงนับตามวันที่ในบิล บิลที่จ่ายช้าจะไปอยู่เดือนถัดไป · "ตั้งไว้" มาจากชีตต้นทุนคงที่ของรายงานหลัก แก้ได้ในหน้าหลังบ้าน (รอบถัดไป)</p></div>
+        ${lad ? `<div class="seg" id="pnl-goal" style="margin-top:8px;flex-wrap:wrap">${lad.levels.slice(1).map(x => `<button data-k="${x.id}" class="${x.id === lvl.id ? 'on' : ''}">${esc(x.short)}</button>`).join('')}</div>` : ''}
+        <p class="sub" style="margin-top:8px">ค่าเสื่อมไม่นับใน "เงินสดที่ต้องหา" เพราะไม่ใช่เงินที่จ่ายออก (เท่ากับบันไดเป้าหมายหน้าภาพรวม) · – = ไม่มีหมวดรายจ่ายให้เทียบ (ค่าเช่า, ค่าขยะ, เมล็ดทิ้งตอน dial-in, รายจ่ายอื่น) · จ่ายจริงนับตามวันที่ในบิล บิลที่จ่ายช้าจะไปอยู่เดือนถัดไป · "ตั้งไว้" มาจากชีตต้นทุนคงที่ของรายงานหลัก แก้ได้ในหน้าหลังบ้าน (รอบถัดไป)</p></div>
       <div class="card"><h2>กำไรสุทธิรายเดือน</h2><p class="sub">หลังค่าเสื่อม · ก่อนเงินเดือนเจ้าของ</p><div class="chart-box"><canvas id="c-net"></canvas></div></div>
     </div>`;
   const o = baseChartOptions(); o.scales.y.beginAtZero = true;
   o.plugins.tooltip.callbacks = { label: c => ` กำไรสุทธิ ${baht(c.raw)} ฿`, afterLabel: c => `รายรับ ${baht(P[c.dataIndex].s.total)} ฿` };
+  const pg = $('#pnl-goal'); if (pg) pg.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; state.goalLevel = Number(b.dataset.k); try { localStorage.setItem('bb-dash-goal', b.dataset.k); } catch (_) {} const y = window.scrollY; render(); window.scrollTo({ top: y }); });
   $('#fixed-month').addEventListener('change', e => { state.fixedMonth = e.target.value; const y = window.scrollY; render(); window.scrollTo({ top: y }); });
   charts.push(new Chart($('#c-net'), { type: 'bar', data: { labels: months.map(monthLabel), datasets: [{ label: 'กำไรสุทธิ', data: P.map(p => Math.round(p.net)), backgroundColor: P.map(p => p.net < 0 ? css('--critical') : css('--series-1')), borderRadius: 4, borderSkipped: 'start', maxBarThickness: 44 }] }, options: o }));
 }
@@ -805,7 +880,9 @@ function renderBalance(v) {
   const debts = new Map();
   for (const l of D.liabilities) { const out = num(l.original_amount) - num(l.paid_amount); if (out <= 0.005 || l.status === 'paid') continue; const k = l.creditor_name || 'ไม่ระบุ'; const d = debts.get(k) || { out: 0, n: 0, type: l.creditor_type }; d.out += out; d.n++; debts.set(k, d); }
   const debtTotal = [...debts.values()].reduce((t, d) => t + d.out, 0);
-  const totalAssets = book + cash + ownerOwes, equity = totalAssets - debtTotal;
+  const stock = stockValue(asOf);
+  const totalAssets = book + cash + ownerOwes + (stock ? stock.value : 0), equity = totalAssets - debtTotal;
+  const eq = equityBooks(m);
   const accName = id => D.accounts.find(a => a.id === id)?.label_th || 'บัญชี';
   const cats = [...byCat.entries()].sort((a, b) => b[1].book - a[1].book);
   const lifeTxt = a => num(a.useful_life_months) > 0 ? `${num(a.useful_life_months)} ด.` : 'ไม่คิด';
@@ -824,7 +901,7 @@ function renderBalance(v) {
   v.innerHTML = `
     <div class="rowflex"><div><h2>งบดุล ณ สิ้น ${monthLabelLong(m)}</h2><p class="sub">ทรัพย์สินหักค่าเสื่อมแบบเส้นตรงรายเดือน · หนี้ = ยอดตั้งต้น − ที่จ่ายแล้ว</p></div></div>
     <div class="grid kpis">
-      <div class="card kpi"><div class="label">มูลค่าทรัพย์สินในร้าน (สุทธิ)</div><div class="value num">${baht(book)} ฿</div><div class="delta">ซื้อมา ${baht(price)} − เสื่อมไปแล้ว ${baht(acc)} · <a class="more" href="#assets-detail">ดูรายชิ้น</a></div></div>
+      <div class="card kpi"><div class="label">มูลค่าทรัพย์สินในร้าน (สุทธิ)</div><div class="value num">${baht(book)} ฿</div><div class="delta">ซื้อมา ${baht(price)} − เสื่อมไปแล้ว ${baht(acc)} · <a class="more" href="#" data-goto="assets">ดูรายชิ้น →</a></div></div>
       <div class="card kpi"><div class="label">เงินสด + เงินในบัญชี</div><div class="value num">${latestBal.size ? baht(cash) + ' ฿' : '–'}</div><div class="delta">${latestBal.size ? 'ยอดนับล่าสุดก่อนสิ้นเดือน' : 'ยังไม่มียอดนับ (เริ่ม 30 พ.ย.)'} · <a class="more" href="#cash-detail">แยกบัญชี</a></div></div>
       <div class="card kpi"><div class="label">หนี้สินคงค้าง</div><div class="value num">${baht(debtTotal)} ฿</div><div class="delta">${debts.size} เจ้าหนี้</div></div>
       <div class="card kpi"><div class="label">ส่วนของเจ้าของ</div><div class="value num ${equity < 0 ? 'neg' : ''}">${baht(equity)} ฿</div><div class="delta">ทรัพย์สินรวม − หนี้สิน${latestBal.size ? '' : ' (ยังไม่รวมเงินสด/ธนาคาร)'}</div></div>
@@ -834,6 +911,7 @@ function renderBalance(v) {
         <div class="lines num">
           <div><span>ทรัพย์สินถาวรหลังค่าเสื่อม (${active.length} รายการ)</span><span>${baht(book)}</span></div>
           ${[...latestBal.values()].map(b => `<div><span>${esc(accName(b.payment_account_id))} <span class="tag">${esc(b.as_of)}</span></span><span>${baht(b.balance)}</span></div>`).join('') || '<div><span>เงินสด/ธนาคาร</span><span style="color:var(--text-muted)">ยังไม่นับ</span></div>'}
+          <div><span>สต็อกวัตถุดิบ ${stock ? `<span class="tag">นับ ${thDate(stock.date)}</span>` : ''}</span><span>${stock ? baht(stock.value) : '<span style="color:var(--text-muted)">ยังไม่มีข้อมูลจาก POS</span>'}</span></div>
           <div><span>เจ้าของค้างร้าน (ใช้เงินร้านส่วนตัว)</span><span>${baht(ownerOwes)}</span></div>
           <div class="total"><span>ทรัพย์สินรวม</span><span>${baht(totalAssets)}</span></div>
         </div>
@@ -841,6 +919,7 @@ function renderBalance(v) {
         <div class="chart-box" style="height:${Math.max(120, cats.length * 30 + 30)}px"><canvas id="c-assets"></canvas></div>
         <h3 id="cash-detail" style="margin-top:16px;scroll-margin-top:120px">เงินสดและเงินในบัญชี</h3><p class="sub">ยอดนับล่าสุดก่อนสิ้นเดือนที่เลือก · กดดูประวัติแต่ละบัญชี</p>
         ${cashDetail}
+        ${reserveHtml(m, latestBal.size ? cash : null)}
       </div>
       <div class="card"><h2>หนี้สินและส่วนของเจ้าของ</h2>
         <div class="lines num">
@@ -855,20 +934,423 @@ function renderBalance(v) {
           <div class="total"><span>สุทธิ ร้านค้างเจ้าของ</span><span>${baht([...debts.values()].filter(d => d.type === 'owner').reduce((t, d) => t + d.out, 0) - ownerOwes)}</span></div>
         </div>
         <p class="sub" style="margin-top:8px">ยังไม่ได้หักลบกันจริง — หักเมื่อเจ้าของตกลง</p>
+        <h3 style="margin-top:16px">ส่วนของเจ้าของมาจากไหน</h3>
+        <div class="lines num">
+          <div><span>ทุนเจ้าของ (ของที่ให้ร้าน เช่นแลกแต้ม Kmarket)</span><span>${baht(eq.capital)}</span></div>
+          <div><span>กำไร (ขาดทุน) สะสม ${monthLabel(eq.from)}–${monthLabel(m)}</span><span class="${eq.re < 0 ? 'neg' : ''}">${baht(eq.re)}</span></div>
+          <div><span>เงินที่เจ้าของเบิก (เงินเดือน)</span><span>−${baht(eq.drawings)}</span></div>
+          <div class="total"><span>ส่วนของเจ้าของตามบัญชี</span><span class="${eq.books < 0 ? 'neg' : ''}">${baht(eq.books)}</span></div>
+          <div><span>ส่วนของเจ้าของจากงบดุล (ทรัพย์สิน − หนี้)</span><span class="${equity < 0 ? 'neg' : ''}">${baht(equity)}</span></div>
+          <div class="total"><span>ส่วนต่างที่ยังกระทบยอดไม่ได้</span><span class="${equity - eq.books < 0 ? 'neg' : ''}">${baht(equity - eq.books)}</span></div>
+        </div>
+        <p class="sub" style="margin-top:6px">ถ้าทุกรายการลงครบ สองบรรทัดนี้ต้องเท่ากัน ส่วนต่างคือเงินที่ยังหาที่มาไม่เจอหรือรายการที่ยังไม่ได้ลง (บิลหลัง 9 พ.ย., ค่าน้ำไฟ พ.ค.–ก.ย., เงินเดือน มิ.ย.–ก.ค., ยอดตั้งต้นเงินสด) — ดูหน้ากระแสเงินสด</p>
       </div>
-    </div>
-    <div class="card" id="assets-detail" style="margin-top:12px;scroll-margin-top:120px"><h2>ทรัพย์สินรายชิ้น</h2>
-      <p class="sub">มูลค่าคงเหลือ = ราคาซื้อ − ค่าเสื่อม (ราคาซื้อ ÷ อายุใช้งาน × เดือนที่ใช้มาแล้ว) · "ไม่คิด" = ของชิ้นเล็กที่ไม่คิดค่าเสื่อม มูลค่าเท่าราคาซื้อ · กดหมวดเพื่อดูรายการ</p>
-      ${assetDetail}</div>`;
+    </div>`;
+  v.querySelectorAll('[data-goto]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); state.tab = a.dataset.goto; render(); }));
   const o = baseChartOptions({ indexAxis: 'y', interaction: { mode: 'nearest', axis: 'y', intersect: false } });
   o.scales.x = Object.assign(baseChartOptions().scales.y, {}); o.scales.y = Object.assign(baseChartOptions().scales.x, { ticks: Object.assign(baseChartOptions().scales.x.ticks, { autoSkip: false }) });
   o.plugins.tooltip.callbacks = { label: c => ` ${baht(c.raw)} ฿ · ${cats[c.dataIndex][1].n} รายการ` };
   charts.push(new Chart($('#c-assets'), { type: 'bar', data: { labels: cats.map(c => c[0]), datasets: [{ data: cats.map(c => Math.round(c[1].book)), backgroundColor: css('--series-1'), borderRadius: 4, borderSkipped: 'start', maxBarThickness: 18 }] }, options: o }));
 }
 
+// equity built from its parts: capital + accumulated profit − drawings (up to the end of month m)
+function equityBooks(m) {
+  const end = addMonths(m, 1) + '-01', ms = allMonths(m);
+  const sum = dir => D.ownerEntries.filter(e => e.direction === dir && e.status !== 'void' && (e.entry_date || '') < end).reduce((t, e) => t + num(e.amount), 0);
+  const capital = sum('capital'), drawings = sum('drawing');
+  const re = ms.reduce((t, x) => t + pnlOfMonth(x).net, 0);
+  return { capital, drawings, re, books: capital + re - drawings, from: ms[0] };
+}
+
+// cash reserve status (Reporting-Direction §10: working cash in SCB + reserve targets)
+function reserveHtml(m, cash) {
+  if (cash == null) return '';
+  const lad = ladder(m); if (!lad) return '';
+  const lvl = lad.levels[state.goalLevel] || lad.levels[1];
+  const wc = setting('working_capital_min'), r1 = setting('reserve_target_1'), r2 = setting('reserve_target_2'), save = setting('reserve_saving_monthly');
+  const months = lvl.need > 0 ? cash / lvl.need : null;
+  let goalPart = '';
+  if (wc != null && r1 != null) {
+    const free = Math.max(0, cash - wc), tgt = free >= r1 && r2 ? r2 : r1;
+    goalPart = `<div class="rowflex" style="margin:10px 0 0"><span>เงินสำรอง (หักเงินหมุนซื้อของ ${baht(wc)} แล้ว)</span><span class="num">${baht(free)} / ${baht(tgt)}</span></div>
+      <div class="progress" role="img" aria-label="เงินสำรองเทียบเป้า"><span style="width:${Math.min(100, free / tgt * 100)}%"></span></div>
+      <p class="sub">เป้าสำรองขั้น 1 = ${baht(r1)}${r2 ? ` · ขั้น 2 = ${baht(r2)}` : ''}${save ? ` · ตั้งเก็บเดือนละ ${baht(save)} → อีก ≈ ${nf0.format(Math.ceil(Math.max(0, tgt - free) / save))} เดือน` : ''} · ใช้เงินสำรองเฉพาะเดือนเงียบ ของก้อนใหญ่ ซ่อมเครื่อง (ไม่ใช่เงินเดือน)</p>`;
+  }
+  return `<h3 style="margin-top:16px">เงินสดสำรอง</h3>
+    <div class="lines num">
+      <div><span>เงินสดที่ต้องใช้ต่อเดือน (${esc(lvl.short)})</span><span>${baht(lvl.need)}</span></div>
+      <div class="total"><span>เงินสดตอนนี้พอใช้ได้</span><span class="${months != null && months < 1 ? 'neg' : ''}">${months == null ? '–' : nf1.format(months) + ' เดือน'}</span></div>
+    </div>
+    <p class="sub">ถ้าเดือนไหนขายไม่ได้เลย เงินสดที่มีจ่ายต้นทุนคงที่ + ซื้อของ + เงินเดือนตามขั้นเป้าได้กี่เดือน</p>${goalPart}`;
+}
+
+// ---------- payback simulator ----------
+function simStart() {
+  const nowM = ym(D.lastSale), asOf = addMonths(nowM, 1) + '-01';
+  const debtOwner = D.liabilities.filter(l => l.creditor_type === 'owner').reduce((t, l) => t + Math.max(0, num(l.original_amount) - num(l.paid_amount)), 0);
+  const debtOther = D.liabilities.filter(l => l.creditor_type !== 'owner').reduce((t, l) => t + Math.max(0, num(l.original_amount) - num(l.paid_amount)), 0);
+  const latest = new Map(); for (const b of D.balances) { const c = latest.get(b.payment_account_id); if (!c || b.as_of > c.as_of) latest.set(b.payment_account_id, b); }
+  const cash = [...latest.values()].reduce((t, b) => t + num(b.balance), 0);
+  const cashDate = [...latest.values()].reduce((m, b) => b.as_of > m ? b.as_of : m, '');
+  const recv = D.ownerEntries.filter(e => e.direction === 'owner_owes_shop' && e.status === 'active').reduce((t, e) => t + num(e.amount), 0);
+  const book = D.assets.filter(a => a.status !== 'disposed' && a.purchase_date < asOf).reduce((t, a) => t + assetValue(a, asOf).book, 0);
+  // defaults = last 3 complete months (trial May and the month in progress excluded)
+  const ms = grossRatio(nowM).months; let st = 0, od = 0, go = 0;
+  for (const x of ms) { const s = salesOfMonth(x); st += s.store; od += s.openDays; go += s.grabOrders; }
+  const cur = salesOfMonth(nowM);
+  return { nowM, debtOwner, debtOther, cash, cashDate, recv, book, ms, storeDay: od ? st / od : 0, grabMonth: ms.length ? go / ms.length : 0,
+    curStoreDay: cur.openDays ? cur.store / cur.openDays : 0, curGrabMonth: cur.openDays ? cur.grabOrders / cur.openDays * planDays(nowM, targetFor(nowM)) : 0 };
+}
+function renderSim(v) {
+  const lad = ladder(state.month);
+  if (!lad || !D.balances.length) { v.innerHTML = `<div class="card"><h2>จำลองคืนทุน</h2><p class="sub">ต้องมีค่าตั้งของแผน (plan_settings) และยอดเงินคงเหลือ (account_balances) ก่อน</p></div>`; return; }
+  const S0 = simStart();
+  const sim = state.sim || (state.sim = { storeDay: Math.round(S0.storeDay / 10) * 10, grab: Math.round(S0.grabMonth), days: 25, salary: setting('salary_low') || 0, repay: setting('owner_debt_repay') || 0, rent: 0, offset: false });
+  const equity0 = S0.book + S0.cash + S0.recv - S0.debtOwner - S0.debtOther;
+  const ctl = (k, label, min, max, step, unit) => `<div class="simctl"><label for="sim-${k}"><span>${label}</span><strong class="num" id="sim-${k}-v"></strong></label><input type="range" id="sim-${k}" data-k="${k}" min="${min}" max="${max}" step="${step}" value="${sim[k]}" aria-label="${label}"><div class="simrange"><span>${nf0.format(min)}</span><span>${nf0.format(max)} ${unit}</span></div></div>`;
+  v.innerHTML = `
+    <div class="card"><h2>จำลองคืนทุน</h2>
+      <p class="sub">เริ่มจากตัวเลขจริง ณ สิ้น ${monthLabelLong(S0.nowM)} · เลื่อนค่าข้างล่างเพื่อดูว่าใช้กี่เดือนคืนเงินที่คุณออกให้ร้านครบ · สูตรเดียวกับบันไดเป้าหมาย</p>
+      <div class="grid kpis" style="margin:8px 0 0">
+        <div class="kpi"><div class="label">หนี้ร้านต่อเจ้าของ</div><div class="value num" style="font-size:20px">${baht(S0.debtOwner)} ฿</div></div>
+        <div class="kpi"><div class="label">เงินสด + เงินในบัญชี</div><div class="value num" style="font-size:20px">${baht(S0.cash)} ฿</div><div class="delta">ยอดนับ ${thDate(S0.cashDate)}</div></div>
+        <div class="kpi"><div class="label">อุปกรณ์หลังค่าเสื่อม</div><div class="value num" style="font-size:20px">${baht(S0.book)} ฿</div></div>
+        <div class="kpi"><div class="label">ส่วนของเจ้าของตอนนี้</div><div class="value num ${equity0 < 0 ? 'neg' : ''}" style="font-size:20px">${baht(equity0)} ฿</div><div class="delta">รวมเจ้าของค้างร้าน ${baht(S0.recv)}</div></div>
+      </div></div>
+    <div class="grid two" style="margin-top:12px">
+      <div class="card" id="sim-controls"><div class="rowflex"><h2>สมมติฐานต่อเดือน</h2>
+        <div class="seg" id="sim-preset"><button data-p="base">ระดับ ${S0.ms.map(monthLabel).join('–').replace(/–.*–/, '–')}</button><button data-p="cur">ระดับ ${monthLabel(S0.nowM)}</button><button data-p="goal">ถึงขั้นคืนหนี้</button></div></div>
+        ${ctl('storeDay', 'ยอดหน้าร้านต่อวันเปิด', 0, 4000, 10, '฿')}
+        ${ctl('grab', 'ออเดอร์ Grab ต่อเดือน', 0, 200, 1, 'ออเดอร์')}
+        ${ctl('days', 'วันเปิดต่อเดือน', 18, 30, 1, 'วัน')}
+        ${ctl('salary', 'เงินเดือนเจ้าของ (เบิกออก)', 0, 30000, 500, '฿')}
+        <div class="seg" id="sim-salary" style="margin:-4px 0 10px">${[0, setting('salary_low'), setting('salary_target')].filter(x => x != null).map(x => `<button data-v="${x}">${x ? kNum(x) : 'ไม่เบิก'}</button>`).join('')}</div>
+        ${ctl('repay', 'คืนหนี้เจ้าของต่อเดือน', 0, 20000, 500, '฿')}
+        ${ctl('rent', 'ค่าเช่า (ถ้าย้าย/ขยายร้าน)', 0, 20000, 500, '฿')}
+        <label class="chk"><input type="checkbox" id="sim-offset" ${sim.offset ? 'checked' : ''}> หักลบที่เจ้าของค้างร้าน ${baht(S0.recv)} ฿ กับหนี้ก่อน</label>
+      </div>
+      <div class="card"><h2>ผลลัพธ์</h2><div id="sim-out"></div></div>
+    </div>
+    <div class="card" style="margin-top:12px"><h2>60 เดือนข้างหน้า</h2><p class="sub">หนี้เจ้าของที่เหลือ · เงินสดของร้าน · ส่วนของเจ้าของ (เส้นประ = 0)</p>
+      ${legend([[css('--series-2'), 'หนี้เจ้าของที่เหลือ'], [css('--series-3'), 'เงินสดร้าน'], [css('--series-1'), 'ส่วนของเจ้าของ']])}
+      <div class="chart-box tall"><canvas id="c-sim"></canvas></div>
+      <div class="scroll" id="sim-table" style="margin-top:10px"></div>
+      <p class="sub" style="margin-top:8px" id="sim-assume">สมมติฐาน: กำไรส่วนเกิน ${nf1.format(lad.contrib)} จาก ${nf1.format(lad.netCup)} ฿ ต่อแก้วหน้าร้าน (${pct(lad.ratio)}) · Grab ${nf1.format(lad.grabPerOrder)} ฿/ออเดอร์ · ต้นทุนคงที่เงินสด ${baht(lad.fixed)} + ซื้อเกินที่ใช้ ${baht(lad.over)} ต่อเดือน · ค่าเสื่อมตามตารางค่าเสื่อม (ลดลงเมื่อของครบอายุ) · ไม่ซื้ออุปกรณ์เพิ่ม ไม่มีหนี้ใหม่ · เงินเดือนเจ้าของนับเป็นการเบิกออก (ลดส่วนของเจ้าของ) · คืนหนี้เฉพาะตอนที่เงินสดพอ</p>
+    </div>`;
+
+  const dep = depSchedule().rows; const depAt = mm => (dep.find(r => r.m === mm) || { total: 0 }).total;
+  let chart = null;
+  const update = () => {
+    for (const k of ['storeDay', 'grab', 'days', 'salary', 'repay', 'rent']) $(`#sim-${k}-v`).textContent = nf0.format(sim[k]) + (k === 'grab' ? ' ออเดอร์' : k === 'days' ? ' วัน' : ' ฿');
+    document.querySelectorAll('#sim-salary button').forEach(b => b.classList.toggle('on', Number(b.dataset.v) === sim.salary));
+    const contribution = sim.storeDay * sim.days * lad.ratio + sim.grab * lad.grabPerOrder;
+    const cashOut = lad.fixed + lad.over + sim.salary + sim.rent;
+    const surplus = contribution - cashOut;
+    let debt = S0.debtOwner, cash = S0.cash, recv = S0.recv, book = S0.book, equity = equity0;
+    if (sim.offset) { const o = Math.min(recv, debt); debt -= o; recv -= o; }
+    const pts = [{ m: S0.nowM, debt, cash, equity }]; let repaidAt = debt <= 0 ? 0 : null, posAt = equity >= 0 ? 0 : null, broke = null, repaidTotal = 0;
+    for (let k = 1; k <= 60; k++) {
+      const mm = addMonths(S0.nowM, k), d = depAt(mm);
+      let pay = Math.min(sim.repay, debt); if (cash + surplus - pay < 0) pay = Math.max(0, Math.min(pay, cash + surplus));
+      cash += surplus - pay; debt -= pay; repaidTotal += pay; book -= d;
+      equity += contribution - lad.fixed - lad.over - sim.rent - d - sim.salary;
+      if (repaidAt == null && debt <= 0.5) repaidAt = k;
+      if (posAt == null && equity >= 0) posAt = k;
+      if (broke == null && cash < 0) broke = k;
+      pts.push({ m: mm, debt, cash, equity });
+    }
+    const yrs = k => k >= 12 ? `${nf1.format(k / 12).replace(/\.0$/, '')} ปี` : `${k} เดือน`;
+    const big = (t, sub, cls = '') => `<div class="simres"><div class="num ${cls}">${t}</div><div class="sub" style="margin:0">${sub}</div></div>`;
+    $('#sim-out').innerHTML = `
+      <div class="lines num">
+        <div><span>กำไรส่วนเกิน (หน้าร้าน ${nf0.format(sim.storeDay * sim.days)} ฿ + Grab)</span><span>${baht(contribution)}</span></div>
+        <div><span>ต้นทุนคงที่ + ซื้อเกิน${sim.rent ? ' + ค่าเช่า' : ''}</span><span>−${baht(lad.fixed + lad.over + sim.rent)}</span></div>
+        <div><span>เงินเดือนเจ้าของ</span><span>−${baht(sim.salary)}</span></div>
+        <div class="total"><span>เงินเหลือต่อเดือน ก่อนคืนหนี้</span><span class="${surplus < 0 ? 'neg' : ''}">${baht(surplus)}</span></div>
+      </div>
+      ${surplus <= 0 ? `<div class="warn" style="margin-top:10px">ระดับนี้เงินไม่เหลือคืนหนี้${surplus < 0 ? ` และเงินสดลดลงเดือนละ ${baht(-surplus)} ฿` : ''} — ต้องเพิ่มยอดขายหรือลดเงินเดือน</div>` : sim.repay > surplus ? `<div class="warn" style="margin-top:10px">ตั้งคืนหนี้ ${baht(sim.repay)} แต่เงินเหลือแค่ ${baht(surplus)}/เดือน — คืนได้เท่าที่เงินสดพอ</div>` : ''}
+      <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:12px;gap:10px">
+        ${big(repaidAt != null ? yrs(repaidAt) : 'เกิน 5 ปี', repaidAt != null ? `คืนหนี้เจ้าของครบ (${monthLabelLong(addMonths(S0.nowM, repaidAt))})` : `คืนได้ ${baht(repaidTotal)} ฿ ใน 5 ปี เหลือ ${baht(pts[60].debt)}`, repaidAt != null ? 'good-big' : 'neg')}
+        ${big(posAt != null ? (posAt === 0 ? 'ตอนนี้' : yrs(posAt)) : 'เกิน 5 ปี', posAt != null ? `ส่วนของเจ้าของเป็นบวก${posAt ? ` (${monthLabelLong(addMonths(S0.nowM, posAt))})` : ''}` : `ส่วนของเจ้าของหลัง 5 ปี ${baht(pts[60].equity)} ฿`, posAt != null ? '' : 'neg')}
+      </div>
+      ${broke != null ? `<div class="warn" style="margin-top:10px">เงินสดหมดในเดือนที่ ${broke} (${monthLabelLong(addMonths(S0.nowM, broke))}) — ระดับนี้ไปต่อไม่ได้ถ้าไม่เติมเงิน</div>` : ''}
+      <p class="sub" style="margin-top:10px">เทียบบันได: ยอดหน้าร้านที่ตั้งไว้ ${baht(sim.storeDay)} ฿/วัน · ขั้นเงินเดือน ${kNum(setting('salary_target') || 0)} ต้องมี ${baht(lad.levels[2].perDay)} · ขั้นคืนหนี้ ${baht(lad.levels[3].perDay)} ฿/วัน (${lad.days} วันเปิด)</p>`;
+    const rowsAt = [0, 6, 12, 24, 36, 48, 60];
+    $('#sim-table').innerHTML = `<table class="num"><thead><tr><th>เมื่อ</th>${rowsAt.map(k => `<th class="r">${k ? yrs(k) : 'ตอนนี้'}</th>`).join('')}</tr></thead><tbody>
+      <tr><td>หนี้เจ้าของที่เหลือ</td>${rowsAt.map(k => `<td class="r">${baht(pts[k].debt)}</td>`).join('')}</tr>
+      <tr><td>เงินสดร้าน</td>${rowsAt.map(k => `<td class="r ${pts[k].cash < 0 ? 'neg' : ''}">${baht(pts[k].cash)}</td>`).join('')}</tr>
+      <tr><td>ส่วนของเจ้าของ</td>${rowsAt.map(k => `<td class="r ${pts[k].equity < 0 ? 'neg' : ''}">${baht(pts[k].equity)}</td>`).join('')}</tr></tbody></table>`;
+    const data = { labels: pts.map(p => monthLabel(p.m)), datasets: [
+      { label: 'หนี้เจ้าของที่เหลือ', data: pts.map(p => Math.round(p.debt)), borderColor: css('--series-2'), backgroundColor: css('--series-2'), borderWidth: 2, pointRadius: 0, pointHoverRadius: 5, tension: 0 },
+      { label: 'เงินสดร้าน', data: pts.map(p => Math.round(p.cash)), borderColor: css('--series-3'), backgroundColor: css('--series-3'), borderWidth: 2, pointRadius: 0, pointHoverRadius: 5, tension: 0 },
+      { label: 'ส่วนของเจ้าของ', data: pts.map(p => Math.round(p.equity)), borderColor: css('--series-1'), backgroundColor: css('--series-1'), borderWidth: 2, pointRadius: 0, pointHoverRadius: 5, tension: 0 },
+      { label: '0', data: pts.map(() => 0), borderColor: css('--text-muted'), borderWidth: 1, borderDash: [4, 4], pointRadius: 0, pointHoverRadius: 0 } ] };
+    if (chart) { chart.data = data; chart.update('none'); return; }
+    const o = baseChartOptions(); o.scales.y.beginAtZero = false; o.scales.x.ticks.maxTicksLimit = 11;
+    o.plugins.tooltip.filter = it => it.dataset.label !== '0';
+    o.plugins.tooltip.callbacks = { label: c => ` ${c.dataset.label}: ${baht(c.raw)} ฿` };
+    chart = new Chart($('#c-sim'), { type: 'line', data, options: o }); charts.push(chart);
+  };
+  $('#sim-controls').addEventListener('input', e => { const k = e.target.dataset?.k; if (k) { sim[k] = Number(e.target.value); update(); } });
+  $('#sim-offset').addEventListener('change', e => { sim.offset = e.target.checked; update(); });
+  const setVals = o => { Object.assign(sim, o); for (const k of Object.keys(o)) { const el = $(`#sim-${k}`); if (el && el.type === 'range') el.value = sim[k]; } update(); };
+  $('#sim-salary').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setVals({ salary: Number(b.dataset.v) }); });
+  $('#sim-preset').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.p === 'base') setVals({ storeDay: Math.round(S0.storeDay / 10) * 10, grab: Math.round(S0.grabMonth) });
+    if (b.dataset.p === 'cur') setVals({ storeDay: Math.round(S0.curStoreDay / 10) * 10, grab: Math.round(S0.curGrabMonth) });
+    if (b.dataset.p === 'goal') setVals({ storeDay: Math.ceil(lad.levels[3].perDay * lad.days / sim.days / 10) * 10, grab: 0, salary: setting('salary_target') || 0, repay: setting('owner_debt_repay') || 0, rent: 0 });
+  });
+  update();
+  renderRoi(v, lad, S0);
+}
+
+// ---------- ROI: the shop today + a new investment ----------
+function renderRoi(v, lad, S0) {
+  const roi = state.roi || (state.roi = { inv: 20000, life: 24, addDay: 200, cost: 300 });
+  const ms = S0.ms, avgNet = ms.length ? ms.reduce((t, x) => t + pnlOfMonth(x).net, 0) / ms.length : 0;
+  const invested = D.assets.reduce((t, a) => t + num(a.purchase_price), 0);
+  const lvl = lad.levels[state.goalLevel] || lad.levels[1];
+  const sal = (lvl.parts.includes('salary_low') ? setting('salary_low') : setting('salary_target')) || 0;
+  const card = document.createElement('div'); card.className = 'grid two'; card.style.marginTop = '12px';
+  const num1 = (k, label, unit) => `<div class="simctl"><label for="roi-${k}"><span>${label}</span></label><div style="display:flex;gap:6px;align-items:center"><input type="number" inputmode="numeric" id="roi-${k}" data-k="${k}" value="${roi[k]}" min="0" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-1)"><span class="sub" style="margin:0;white-space:nowrap">${unit}</span></div></div>`;
+  card.innerHTML = `
+    <div class="card"><h2>ผลตอบแทนของร้านตอนนี้ (ROI)</h2><p class="sub">กำไรสุทธิเฉลี่ย ${ms.map(monthLabel).join(', ')} × 12 ÷ เงินที่ลงทุนซื้อทรัพย์สิน ${baht(invested)} ฿</p>
+      <div class="lines num">
+        <div><span>กำไรสุทธิเฉลี่ยต่อเดือน (หลังค่าเสื่อม ก่อนเงินเดือน)</span><span class="${avgNet < 0 ? 'neg' : ''}">${baht(avgNet)}</span></div>
+        <div class="total"><span>ROI ต่อปี ก่อนเงินเดือนเจ้าของ</span><span class="${avgNet < 0 ? 'neg' : ''}">${pct(avgNet * 12 / invested)}</span></div>
+        <div><span>หักเงินเดือน ${baht(sal)} (ขั้นเป้าที่เลือก)</span><span class="${avgNet - sal < 0 ? 'neg' : ''}">${baht(avgNet - sal)}</span></div>
+        <div class="total"><span>ROI ต่อปี หลังเงินเดือน</span><span class="${avgNet - sal < 0 ? 'neg' : ''}">${pct((avgNet - sal) * 12 / invested)}</span></div>
+      </div>
+      <p class="sub" style="margin-top:8px">กำไรเฉลี่ยยังไม่รวมค่าน้ำไฟ พ.ค.–ก.ย. ที่ยังไม่ได้ลงบิล · ROI ก่อนเงินเดือนคือผลตอบแทนรวมค่าแรงของคุณเอง ส่วนหลังเงินเดือนคือผลตอบแทนของเงินลงทุนจริง</p></div>
+    <div class="card" id="roi-new"><h2>ประเมินการลงทุนใหม่</h2><p class="sub">เช่น ซื้ออุปกรณ์/ขยายเมนู · ใช้กำไรส่วนเกิน ${pct(lad.ratio)} ของยอดหน้าร้าน และวันเปิด ${state.sim.days} วัน/เดือนจากตัวจำลองด้านบน</p>
+      ${num1('inv', 'เงินลงทุน', '฿')}
+      ${num1('life', 'อายุใช้งาน', 'เดือน')}
+      ${num1('addDay', 'ยอดหน้าร้านที่คาดว่าจะเพิ่มต่อวัน', '฿/วัน')}
+      ${num1('cost', 'ค่าใช้จ่ายเพิ่มต่อเดือน (ค่าไฟ ค่าบำรุง ฯลฯ)', '฿/เดือน')}
+      <div id="roi-out"></div></div>`;
+  v.appendChild(card);
+  const upd = () => {
+    const days = state.sim.days, contrib = roi.addDay * days * lad.ratio - roi.cost, dep = roi.life > 0 ? roi.inv / roi.life : 0, net = contrib - dep;
+    const pay = contrib > 0 ? roi.inv / contrib : null, need = roi.life > 0 ? (roi.inv / roi.life + roi.cost) / (days * lad.ratio) : null;
+    const ok = pay != null && pay <= roi.life;
+    $('#roi-out').innerHTML = `<div class="lines num" style="margin-top:6px">
+        <div><span>กำไรส่วนเกินเพิ่มต่อเดือน</span><span class="${contrib < 0 ? 'neg' : ''}">${baht(contrib)}</span></div>
+        <div><span>ค่าเสื่อมของที่ลงทุนต่อเดือน</span><span>−${baht(dep)}</span></div>
+        <div class="total"><span>กำไรสุทธิเพิ่มต่อเดือน</span><span class="${net < 0 ? 'neg' : ''}">${baht(net)}</span></div>
+        <div><span>ROI ต่อปี</span><span class="${net < 0 ? 'neg' : ''}">${roi.inv ? pct(net * 12 / roi.inv) : '–'}</span></div>
+        <div><span>คืนทุนใน</span><span>${pay == null ? 'ไม่คืนทุน' : nf1.format(pay) + ' เดือน'}</span></div>
+      </div>
+      <div class="${ok ? 'simres' : 'warn'}" style="margin-top:10px">${ok ? `<span class="good-big">คุ้ม</span> — คืนทุนก่อนหมดอายุใช้งาน ${nf0.format(roi.life)} เดือน หลังจากนั้นได้กำไรเพิ่ม ≈ ${baht(contrib * roi.life - roi.inv)} ฿ ตลอดอายุ` : `ยังไม่คุ้ม — คืนทุนไม่ทันอายุใช้งาน ${nf0.format(roi.life)} เดือน`} · จุดคุ้มทุนของการลงทุนนี้ = ต้องขายหน้าร้านเพิ่ม ≈ ${need != null ? baht(need) : '–'} ฿/วัน</div>`;
+  };
+  $('#roi-new').addEventListener('input', e => { const k = e.target.dataset?.k; if (!k) return; roi[k] = Math.max(0, Number(e.target.value) || 0); upd(); });
+  upd();
+}
+
+// ---------- assets register ----------
+function renderAssets(v) {
+  const m = state.month, asOf = addMonths(m, 1) + '-01';
+  const active = D.assets.filter(a => a.purchase_date < asOf && !(a.status === 'disposed' && a.disposed_date && a.disposed_date < asOf));
+  let price = 0, acc = 0; const byCat = new Map();
+  for (const a of active) { const x = assetValue(a, asOf); price += num(a.purchase_price); acc += x.acc; const cn = ASSET_CAT[a.category] || a.category || 'อื่นๆ'; const c = byCat.get(cn) || { book: 0, n: 0, price: 0, acc: 0, items: [] }; c.book += x.book; c.price += num(a.purchase_price); c.acc += x.acc; c.n++; c.items.push({ a, x }); byCat.set(cn, c); }
+  const cats = [...byCat.entries()].sort((a, b) => b[1].book - a[1].book);
+  const lifeTxt = a => num(a.useful_life_months) > 0 ? `${num(a.useful_life_months)} ด.` : 'ไม่คิด';
+  const payTxt = a => { const k = D.accounts.find(x => x.id === a.payment_account_id)?.key; return k === 'owner_advance' ? (D.ownerEntries.some(o => o.asset_id === a.id && o.direction === 'capital') ? 'ทุนเจ้าของ' : 'เงินเจ้าของ (หนี้)') : k ? 'เงินร้าน' : '–'; };
+  v.innerHTML = `
+    <div class="grid kpis">
+      <div class="card kpi"><div class="label">ราคาซื้อรวม</div><div class="value num">${baht(price)} ฿</div><div class="delta">${active.length} รายการ</div></div>
+      <div class="card kpi"><div class="label">ค่าเสื่อมสะสม</div><div class="value num">${baht(acc)} ฿</div><div class="delta">ถึงสิ้น ${monthLabelLong(m)}</div></div>
+      <div class="card kpi"><div class="label">มูลค่าคงเหลือ</div><div class="value num">${baht(price - acc)} ฿</div></div>
+      <div class="card kpi"><div class="label">ค่าเสื่อมเดือนนี้</div><div class="value num">${baht(depreciationOfMonth(m))} ฿</div><div class="delta">ไม่ใช่เงินสดที่จ่ายออก</div></div>
+    </div>
+    <div class="card"><h2>ทรัพย์สินรายชิ้น</h2>
+      <p class="sub">มูลค่าคงเหลือ = ราคาซื้อ − ค่าเสื่อม (ราคาซื้อ ÷ อายุใช้งาน × เดือนที่ใช้มาแล้ว) · เริ่มคิดค่าเสื่อมเมื่อพร้อมใช้งาน: ของที่ซื้อก่อนเปิดร้านเริ่มนับ 22 พ.ค. 2569 · "ไม่คิด" = ของชิ้นเล็กที่ไม่คิดค่าเสื่อม · กดหมวดเพื่อดูรายการ</p>
+      ${cats.map(([name, c]) => `<details><summary><span class="l">${esc(name)} <span class="tag">${c.n} รายการ</span></span><span class="num">${baht(c.book)}</span></summary>
+      <div class="scroll maxh"><table class="num"><thead><tr><th>รายการ</th><th>ซื้อเมื่อ</th><th>เริ่มคิดค่าเสื่อม</th><th>จ่ายด้วย</th><th class="r">ราคาซื้อ</th><th class="r">อายุใช้งาน</th><th class="r">เสื่อมไปแล้ว</th><th class="r">มูลค่าคงเหลือ</th></tr></thead><tbody>
+      ${c.items.sort((p, q) => q.x.book - p.x.book || num(q.a.purchase_price) - num(p.a.purchase_price)).map(({ a, x }) => `<tr><td style="white-space:normal;min-width:140px">${esc(a.name)}</td><td>${thDate(a.purchase_date)}</td><td>${num(a.useful_life_months) > 0 ? thDate(depStart(a)) : '–'}</td><td>${payTxt(a)}</td><td class="r">${baht(a.purchase_price)}</td><td class="r">${lifeTxt(a)}</td><td class="r">${baht(x.acc)}</td><td class="r">${baht(x.book)}</td></tr>`).join('')}
+      <tr class="sum"><td>รวม</td><td></td><td></td><td></td><td class="r">${baht(c.price)}</td><td></td><td class="r">${baht(c.acc)}</td><td class="r">${baht(c.book)}</td></tr></tbody></table></div></details>`).join('')}
+    </div>
+    <div class="card" id="dep-schedule" style="margin-top:12px"></div>`;
+  renderDepSchedule(m);
+}
+
+// ---------- cash flow statement (direct method, from recorded transactions) ----------
+function cashFlowOfMonth(m) {
+  const s = salesOfMonth(m), inShop = id => !id || D.shopAcct.has(id);
+  const opPaid = D.expenses.filter(e => ym(e.expense_date) === m && inShop(e.payment_account_id)).reduce((t, e) => t + num(e.amount), 0);
+  const ownerPaidExp = D.expenses.filter(e => ym(e.expense_date) === m && !inShop(e.payment_account_id)).reduce((t, e) => t + num(e.amount), 0);
+  const capex = D.assets.filter(a => ym(a.purchase_date) === m && inShop(a.payment_account_id)).reduce((t, a) => t + num(a.purchase_price), 0);
+  const ownerPaidAssets = D.assets.filter(a => ym(a.purchase_date) === m && !inShop(a.payment_account_id)).reduce((t, a) => t + num(a.purchase_price), 0);
+  const repay = D.liabPayments.filter(x => ym(x.payment_date) === m && inShop(x.payment_account_id)).reduce((t, x) => t + num(x.amount), 0);
+  const ent = dir => D.ownerEntries.filter(e => e.direction === dir && e.entry_date && ym(e.entry_date) === m).reduce((t, e) => t + num(e.amount), 0);
+  const drawings = ent('drawing'), personal = ent('owner_owes_shop'), ownerBack = ent('settlement');
+  const salesIn = s.store, grabIn = s.grab, lmIn = s.lineman;
+  const op = salesIn + grabIn + lmIn - opPaid, inv = -capex, fin = -drawings - repay - personal + ownerBack;
+  return { m, salesIn, grabIn, lmIn, opPaid, op, capex, inv, drawings, repay, personal, ownerBack, fin, net: op + inv + fin, ownerPaidExp, ownerPaidAssets };
+}
+function renderCash(v) {
+  const months = allMonths(state.month);
+  let run = 0; const C = months.map(m => { const c = cashFlowOfMonth(m); c.open = run; run += c.net; c.close = run; return c; });
+  const td = (x, i, neg) => `<td class="r ${months[i] === state.month ? 'sel' : ''} ${x < 0 ? 'neg' : ''}">${x ? (neg ? '−' : '') + baht(Math.abs(x)) : ''}</td>`;
+  const row = (label, f, cls = '', neg = false) => `<tr class="${cls}"><td>${label}</td>${C.map((c, i) => td(neg ? f(c) : f(c), i, neg)).join('')}</tr>`;
+  const sumRow = (label, f, cls = 'sum') => `<tr class="${cls}"><td>${label}</td>${C.map((c, i) => `<td class="r ${months[i] === state.month ? 'sel' : ''} ${f(c) < 0 ? 'neg' : ''}">${baht(f(c))}</td>`).join('')}</tr>`;
+  const head = t => `<tr class="grp"><td colspan="${months.length + 1}">${t}</td></tr>`;
+  let h = `<table class="num pnl"><thead><tr><th>รายการ (บาท)</th>${months.map(x => `<th class="r ${x === state.month ? 'sel' : ''}">${monthLabel(x)}</th>`).join('')}</tr></thead><tbody>`;
+  h += sumRow('เงินสดต้นเดือน (ตามบัญชี)', c => c.open, '');
+  h += head('จากการขายและดำเนินงาน') + row('&nbsp;&nbsp;รับจากหน้าร้าน + ' + CH.gov + ' (POS)', c => c.salesIn) + row('&nbsp;&nbsp;รับจาก ' + CH.grab + ' (เงินโอน)', c => c.grabIn) + row('&nbsp;&nbsp;รับจาก ' + CH.lm + ' (เงินโอน)', c => c.lmIn) + row('&nbsp;&nbsp;จ่ายค่าของ/ค่าใช้จ่าย จากบัญชีร้าน', c => c.opPaid, '', true) + sumRow('เงินสดจากการดำเนินงาน', c => c.op);
+  h += head('การลงทุน') + row('&nbsp;&nbsp;ซื้อทรัพย์สิน จากบัญชีร้าน', c => c.capex, '', true) + sumRow('เงินสดจากการลงทุน', c => c.inv);
+  h += head('เงินเจ้าของ') + row('&nbsp;&nbsp;เจ้าของเบิกเงินเดือน', c => c.drawings, '', true) + row('&nbsp;&nbsp;คืนหนี้เจ้าของ', c => c.repay, '', true) + row('&nbsp;&nbsp;เจ้าของใช้เงินร้านส่วนตัว', c => c.personal, '', true) + row('&nbsp;&nbsp;เจ้าของคืนเงินให้ร้าน', c => c.ownerBack) + sumRow('เงินสดจากเงินเจ้าของ', c => c.fin);
+  h += sumRow('เงินสดเพิ่ม (ลด) สุทธิ', c => c.net) + sumRow('เงินสดปลายเดือน (ตามบัญชี)', c => c.close, 'sum total');
+  h += head('ไม่ผ่านเงินร้าน (เจ้าของจ่ายแทน → เพิ่มหนี้เจ้าของหรือทุน)') + row('&nbsp;&nbsp;ค่าใช้จ่ายที่เจ้าของจ่ายแทน', c => c.ownerPaidExp) + row('&nbsp;&nbsp;ทรัพย์สินที่เจ้าของจ่ายแทน', c => c.ownerPaidAssets);
+  h += '</tbody></table>';
+  // reconcile with counted balances
+  const latest = new Map(); for (const b of D.balances) { const c = latest.get(b.payment_account_id); if (!c || b.as_of > c.as_of) latest.set(b.payment_account_id, b); }
+  const actual = [...latest.values()].reduce((t, b) => t + num(b.balance), 0), balDate = [...latest.values()].reduce((x, b) => b.as_of > x ? b.as_of : x, '');
+  const atM = balDate ? C.find(c => c.m === ym(balDate)) : null;
+  const gap = atM ? actual - atM.close : null;
+  v.innerHTML = `
+    <div class="card"><h2>งบกระแสเงินสดรายเดือน</h2><p class="sub">เงินที่เข้า-ออกบัญชีร้านจริง (เงินสด, SCB, KTB, กรุงศรี, บัญชีพนิศาเดิม) ตามวันที่จ่าย · เริ่มนับจากศูนย์ในเดือนแรก · ต่างจากกำไรเพราะการซื้อทรัพย์สิน การคืนหนี้ และเงินเดือนเจ้าของเป็นเงินออกแต่ไม่ใช่รายจ่าย ส่วนค่าเสื่อมเป็นรายจ่ายแต่ไม่ใช่เงินออก</p>
+      <div class="scroll">${h}</div></div>
+    <div class="grid two" style="margin-top:12px">
+      <div class="card"><h2>เทียบกับเงินที่นับได้จริง</h2>
+        ${atM ? `<div class="lines num">
+          <div><span>เงินสดตามบัญชี ณ สิ้น ${monthLabelLong(atM.m)}</span><span>${baht(atM.close)}</span></div>
+          <div><span>นับได้จริง (ล่าสุด ${thDate(balDate)})</span><span>${baht(actual)}</span></div>
+          <div class="total"><span>ส่วนต่างที่ยังหาที่มาไม่ได้</span><span class="${gap < 0 ? 'neg' : ''}">${baht(gap)}</span></div></div>
+          <p class="sub" style="margin-top:8px">ติดลบ = เงินจริงน้อยกว่าที่บัญชีบอก · สาเหตุที่รู้แล้วยังไม่ได้ลง: บิลซื้อหลัง 9 พ.ย. (≈ 8,000–11,000), เงินเดือน มิ.ย.–ก.ค. (ยังไม่ทราบยอด), ค่าน้ำไฟ พ.ค.–ก.ย. (ถ้าจ่ายจากบัญชีร้าน) · ยอดขาย พ.ย. มีถึง 26 พ.ย. · ส่วนที่เหลือต้องดู statement SCB / KTB / กรุงศรี</p>` : '<p class="sub">ยังไม่มียอดนับเงิน</p>'}
+      </div>
+      <div class="card"><h2>อ่านอย่างไร</h2>
+        <div class="lines">
+          <div><span>กำไร</span><span style="text-align:right">ร้านทำเงินได้ไหม (หน้างบกำไร)</span></div>
+          <div><span>กระแสเงินสด</span><span style="text-align:right">เงินจริงไปไหน พอจ่ายไหม (หน้านี้)</span></div>
+          <div><span>งบดุล</span><span style="text-align:right">ตอนนี้ร้านมีอะไร ติดหนี้ใคร (หน้างบดุล)</span></div>
+        </div>
+        <p class="sub" style="margin-top:8px">ตั้งแต่สิ้น พ.ย. จะเริ่มบัญชีเงินสดใหม่จากยอดนับจริง แล้วกระทบยอดทุกเดือนตอนปิดเดือน</p></div>
+    </div>`;
+}
+
+// ---------- waste ----------
+const WASTE_TYPES = { 'wasted': 'ของเสีย/ทิ้ง', 'Testing': 'ทดสอบสูตร', "Barista's drink": 'เครื่องดื่มพนักงาน', 'Marketing แจก': 'แจกการตลาด' };
+function renderWaste(v) {
+  const range = state.wasteRange || 'all';
+  const months = range === 'month' ? [state.month] : range === '3m' ? D.months.filter(x => x <= state.month).slice(-3) : D.months.filter(x => x <= state.month);
+  const rows = D.promos.filter(p => p.promo_name !== 'Grab' && months.includes(ym(p.business_date)));
+  const promoMonths = new Set(D.promos.map(p => ym(p.business_date)));
+  const typeOf = p => WASTE_TYPES[p.promo_name] || p.promo_name;
+  const unitCost = p => { const c = costFor(p.menu_name, null); return c ? num(c.cost_dinein) : null; };
+  const byType = new Map(), byItem = new Map(); let qty = 0, atPrice = 0, atCost = 0, noCost = 0;
+  for (const p of rows) {
+    const t = typeOf(p), q = num(p.qty), uc = unitCost(p), cst = uc != null ? uc * q : 0;
+    qty += q; atPrice += num(p.discount); atCost += cst; if (uc == null) noCost += q;
+    const a = byType.get(t) || { q: 0, price: 0, cost: 0 }; a.q += q; a.price += num(p.discount); a.cost += cst; byType.set(t, a);
+    const k = t + '|' + p.menu_name; const b = byItem.get(k) || { t, menu: p.menu_name, q: 0, price: 0, cost: 0, uc }; b.q += q; b.price += num(p.discount); b.cost += cst; byItem.set(k, b);
+  }
+  const dialItem = D.fixedItems.find(f => /dial/i.test(f.name));
+  const monthRows = months.map(m => {
+    const s = salesOfMonth(m), pm = D.promos.filter(p => p.promo_name !== 'Grab' && ym(p.business_date) === m);
+    const promoCost = pm.reduce((t, p) => { const uc = unitCost(p); return t + (uc != null ? uc * num(p.qty) : 0); }, 0);
+    const dial = dialItem ? num(dialItem.monthly_amount) * s.openDays / 26 : 0;
+    // purchases of ingredients + packaging vs what the recipes say was used
+    const cats = pnlOfMonth(m).cats, bought = (cats.raw_materials || 0) + (cats.packaging || 0);
+    let used = 0; for (const r of D.menuSales) { if (ym(r.business_date) !== m) continue; const c = costFor(r.menu_name, r.temp); if (c) used += num(r.qty) * num(r.channel === 'grab' ? c.cost_takeaway : c.cost_dinein); }
+    return { m, has: promoMonths.has(m), promoQty: pm.reduce((t, p) => t + num(p.qty), 0), promoCost, free: s.free, dialG: 120 * s.openDays, dial, bought, used, diff: bought - used };
+  });
+  const seg = `<div class="seg" id="seg-waste">${[['month', 'เดือนนี้'], ['3m', '3 เดือน'], ['all', 'ทั้งหมด']].map(([k, t]) => `<button data-k="${k}" class="${range === k ? 'on' : ''}">${t}</button>`).join('')}</div>`;
+  v.innerHTML = `
+    <div class="rowflex"><div><h2>ของเสีย ของแจก และส่วนต่างจากสูตร</h2><p class="sub">${months.length > 1 ? `${monthLabel(months[0])}–${monthLabel(months[months.length - 1])}` : monthLabelLong(months[0])} · จากรายการโปรโมชั่นใน POS (wasted / Testing / Barista's drink / Marketing แจก) คิดมูลค่าที่ต้นทุนตามสูตร</p></div>${seg}</div>
+    ${months.some(m => !promoMonths.has(m)) ? `<div class="warn">ยังไม่มีรายงานโปรโมชั่นของ ${months.filter(m => !promoMonths.has(m)).map(monthLabel).join(', ')} — ดึงจาก POS ตอนปิดเดือน (ตอนนี้ดูได้แค่จำนวนแก้วที่ไม่มีรายได้ในตารางรายเดือน)</div>` : ''}
+    <div class="grid kpis">
+      <div class="card kpi"><div class="label">มูลค่าที่ต้นทุน</div><div class="value num">${baht(atCost)} ฿</div><div class="delta">${noCost ? `ไม่มีต้นทุน ${nf0.format(noCost)} ชิ้น (ขนม)` : 'ทุกรายการมีต้นทุน'}</div></div>
+      <div class="card kpi"><div class="label">มูลค่าที่ราคาขาย</div><div class="value num">${baht(atPrice)} ฿</div><div class="delta">รายได้ที่ไม่ได้รับ</div></div>
+      <div class="card kpi"><div class="label">จำนวน</div><div class="value num">${nf0.format(qty)}</div><div class="delta">แก้ว/ชิ้น</div></div>
+      <div class="card kpi"><div class="label">เมล็ดทิ้งตอน dial-in (ประมาณ)</div><div class="value num">${baht(monthRows.reduce((t, r) => t + r.dial, 0))} ฿</div><div class="delta">≈ ${nf0.format(monthRows.reduce((t, r) => t + r.dialG, 0) / 1000)} กก. (120 ก./วันเปิด)</div></div>
+    </div>
+    <div class="grid two">
+      <div class="card"><h2>แยกตามประเภท</h2><div class="scroll"><table class="num"><thead><tr><th>ประเภท</th><th class="r">จำนวน</th><th class="r">มูลค่าที่ต้นทุน</th><th class="r">มูลค่าที่ราคาขาย</th></tr></thead><tbody>
+        ${[...byType.entries()].sort((a, b) => b[1].cost - a[1].cost).map(([t, a]) => `<tr><td>${esc(t)}</td><td class="r">${nf0.format(a.q)}</td><td class="r">${baht(a.cost)}</td><td class="r">${baht(a.price)}</td></tr>`).join('') || '<tr><td colspan="4" class="sub">ไม่มีรายการในช่วงนี้</td></tr>'}
+        </tbody></table></div>
+        <p class="sub" style="margin-top:8px">ของเสียที่เป็นวัตถุดิบ (นมเสีย, ของหมดอายุ) ยังไม่มีที่บันทึก — ให้คีย์ใน POS เป็นโปรฯ "wasted" ตอนทิ้ง จะขึ้นในหน้านี้อัตโนมัติ</p></div>
+      <div class="card"><h2>แยกตามเมนู</h2><div class="scroll maxh"><table class="num"><thead><tr><th>เมนู</th><th>ประเภท</th><th class="r">จำนวน</th><th class="r">ต้นทุน/ชิ้น</th><th class="r">มูลค่าที่ต้นทุน</th></tr></thead><tbody>
+        ${[...byItem.values()].sort((a, b) => b.cost - a.cost || b.q - a.q).map(b => `<tr><td>${esc(b.menu)}</td><td>${esc(b.t)}</td><td class="r">${nf0.format(b.q)}</td><td class="r">${b.uc != null ? nf1.format(b.uc) : '<span class="muted">ไม่มี</span>'}</td><td class="r">${baht(b.cost)}</td></tr>`).join('')}
+        </tbody></table></div></div>
+    </div>
+    <div class="card" style="margin-top:12px"><h2>รายเดือน</h2><p class="sub">ซื้อ − ใช้ตามสูตร = ส่วนต่างที่ยังอธิบายไม่ได้: รวมของเสีย ของที่ซื้อตุนเป็นสต็อก วัตถุดิบขนม (ยังไม่มีสูตร) และราคาที่ต่างจากประมาณการ — จะแม่นขึ้นเมื่อมีสต็อกปลายเดือนจาก POS</p>
+      <div class="scroll"><table class="num"><thead><tr><th>เดือน</th><th class="r">ของแจก/ทดสอบ/เสีย (ชิ้น)</th><th class="r">มูลค่าที่ต้นทุน</th><th class="r">แก้วไม่มีรายได้ (POS)</th><th class="r">dial-in (ประมาณ)</th><th class="r">ซื้อวัตถุดิบ+บรรจุภัณฑ์</th><th class="r">ควรใช้ตามสูตร</th><th class="r">ส่วนต่าง</th></tr></thead><tbody>
+      ${monthRows.map(r => `<tr><td>${monthLabel(r.m)}</td><td class="r">${r.has ? nf0.format(r.promoQty) : '<span class="muted">ไม่มีรายงาน</span>'}</td><td class="r">${r.has ? baht(r.promoCost) : ''}</td><td class="r">${nf0.format(r.free)}</td><td class="r">${baht(r.dial)}</td><td class="r">${baht(r.bought)}</td><td class="r">${baht(r.used)}</td><td class="r ${r.diff > 0 ? 'bad' : ''}">${baht(r.diff)}</td></tr>`).join('')}
+      </tbody></table></div></div>`;
+  $('#seg-waste').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; state.wasteRange = b.dataset.k; render(); });
+}
+
+// ---------- depreciation schedule (past + projected until every asset is fully depreciated) ----------
+function idxToMonth(i) { return `${Math.floor(i / 12)}-${String(i % 12 + 1).padStart(2, '0')}`; }
+function depSchedule() {
+  let lo = Infinity, hi = -Infinity; const items = [];
+  for (const a of D.assets) {
+    const life = num(a.useful_life_months); if (!(life > 0)) continue;
+    const s = monthIndex(depStart(a));
+    const end = Math.min(s + life - 1, a.status === 'disposed' && a.disposed_date ? monthIndex(a.disposed_date) - 1 : Infinity);
+    items.push({ a, s, end, per: num(a.purchase_price) / life, cat: ASSET_CAT[a.category] || a.category || 'อื่นๆ' });
+    lo = Math.min(lo, s); hi = Math.max(hi, end);
+  }
+  const cats = [...new Set(items.map(x => x.cat))];
+  const rows = []; let acc = 0;
+  const totalPrice = items.reduce((t, x) => t + num(x.a.purchase_price), 0);
+  for (let i = lo; i <= hi; i++) {
+    const r = { i, m: idxToMonth(i), byCat: {}, total: 0 };
+    for (const x of items) if (i >= x.s && i <= x.end) { r.byCat[x.cat] = (r.byCat[x.cat] || 0) + x.per; r.total += x.per; }
+    acc += r.total; r.acc = acc; r.book = totalPrice - acc; rows.push(r);
+  }
+  return { rows, cats, items };
+}
+function renderDepSchedule(selMonth) {
+  const { rows, cats, items } = depSchedule(); const el = $('#dep-schedule'); if (!rows.length) { el.innerHTML = ''; return; }
+  const nowM = ym(D.lastSale || selMonth), pick = state.depMonth || selMonth;
+  const colors = ['--series-1', '--series-2', '--series-3'];
+  const lastDrop = rows.filter(r => r.m > nowM).find((r, k, arr) => k > 0 && r.total < arr[k - 1].total - 0.5);
+  el.innerHTML = `<h2>ค่าเสื่อมรายเดือน</h2>
+    <p class="sub">ตั้งแต่เดือนที่เริ่มใช้งาน จนถึงเดือนที่ของชิ้นสุดท้ายหมดค่าเสื่อม (${monthLabelLong(rows[rows.length - 1].m)}) · หลังเดือนปัจจุบันเป็นประมาณการ (ถ้าไม่ซื้อของเพิ่ม) · ค่าเสื่อมไม่ใช่เงินสดที่จ่ายออก${lastDrop ? ` · ค่าเสื่อมเริ่มลดลงเมื่อ ${monthLabelLong(lastDrop.m)} เพราะของชุดแรกครบอายุ` : ''}</p>
+    ${legend(cats.map((c, k) => [css(colors[k % 3]), c, 1]))}
+    <div class="chart-box"><canvas id="c-dep"></canvas></div>
+    <p class="sub" style="margin-top:8px">กดเดือนในตารางเพื่อดูว่าชิ้นไหนคิดค่าเสื่อมเดือนนั้น</p>
+    <div class="scroll maxh"><table class="num" id="dep-table"><thead><tr><th>เดือน</th>${cats.map(c => `<th class="r">${esc(c)}</th>`).join('')}<th class="r">รวม/เดือน</th><th class="r">สะสม</th><th class="r">มูลค่าคงเหลือ*</th></tr></thead><tbody>
+    ${rows.map(r => `<tr data-m="${r.m}" class="${r.m === pick ? 'sel' : ''}" style="cursor:pointer;${r.m > nowM ? 'color:var(--text-muted)' : ''}"><td>${monthLabel(r.m)}${r.m === nowM ? ' <span class="tag">ปัจจุบัน</span>' : ''}</td>${cats.map(c => `<td class="r">${r.byCat[c] ? baht(r.byCat[c]) : ''}</td>`).join('')}<td class="r">${baht(r.total)}</td><td class="r">${baht(r.acc)}</td><td class="r">${baht(r.book)}</td></tr>`).join('')}
+    </tbody></table></div>
+    <p class="sub">* มูลค่าคงเหลือเฉพาะของที่คิดค่าเสื่อม (ไม่รวมของชิ้นเล็กที่ไม่คิดค่าเสื่อม)</p>
+    <div id="dep-month-detail"></div>`;
+  const showMonth = mm => {
+    const i = monthIndex(mm + '-01');
+    const list = items.filter(x => i >= x.s && i <= x.end).sort((p, q) => q.per - p.per);
+    $('#dep-month-detail').innerHTML = `<h3 style="margin-top:12px">${monthLabelLong(mm)}: ${list.length} ชิ้น รวม ${baht(list.reduce((t, x) => t + x.per, 0))} ฿</h3>
+      <div class="scroll maxh"><table class="num"><thead><tr><th>รายการ</th><th>หมวด</th><th class="r">ค่าเสื่อม/เดือน</th><th class="r">เดือนที่</th><th class="r">ครบอายุ</th></tr></thead><tbody>
+      ${list.map(x => `<tr><td style="white-space:normal;min-width:140px">${esc(x.a.name)}</td><td>${esc(x.cat)}</td><td class="r">${nf2.format(x.per)}</td><td class="r">${i - x.s + 1}/${num(x.a.useful_life_months)}</td><td>${monthLabel(idxToMonth(x.end))}</td></tr>`).join('')}
+      </tbody></table></div>`;
+  };
+  showMonth(rows.some(r => r.m === pick) ? pick : nowM);
+  $('#dep-table').addEventListener('click', e => { const tr = e.target.closest('tr[data-m]'); if (!tr) return; state.depMonth = tr.dataset.m; document.querySelectorAll('#dep-table tr.sel').forEach(x => x.classList.remove('sel')); tr.classList.add('sel'); showMonth(tr.dataset.m); });
+  const sel = $('#dep-table tr.sel'); if (sel) sel.scrollIntoView({ block: 'nearest' });
+  const o = baseChartOptions(); o.scales.x.stacked = true; o.scales.y.stacked = true;
+  o.scales.x.ticks.maxTicksLimit = 12;
+  o.plugins.tooltip.callbacks = { title: it => monthLabelLong(rows[it[0].dataIndex].m) + (rows[it[0].dataIndex].m > nowM ? ' (ประมาณการ)' : ''), label: c => ` ${c.dataset.label}: ${baht(c.raw)} ฿`, footer: it => `รวม ${baht(it.reduce((t, x) => t + x.raw, 0))} ฿/เดือน` };
+  charts.push(new Chart($('#c-dep'), { type: 'bar', data: { labels: rows.map(r => monthLabel(r.m)), datasets: cats.map((c, k) => ({
+    label: c, data: rows.map(r => Math.round(r.byCat[c] || 0)), stack: 's', borderRadius: 3, borderSkipped: 'start', borderColor: css('--surface-1'), borderWidth: { top: 1 },
+    backgroundColor: rows.map(r => r.m > nowM ? css(colors[k % 3]) + '66' : css(colors[k % 3])) })) }, options: o }));
+}
+
 // ---------- shell ----------
 function setTab(t) { state.tab = t; }
 document.querySelector('nav.tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; state.tab = b.dataset.tab; try { localStorage.setItem('bb-dash-tab', state.tab); } catch (_) {} render(); });
+document.querySelector('nav.groups').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; state.tab = TABS[b.dataset.group][0][0]; try { localStorage.setItem('bb-dash-tab', state.tab); } catch (_) {} render(); });
+// download every table on the current page as one Excel file (one sheet per table)
+$('#export').addEventListener('click', async () => {
+  if (!window.XLSX) await new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'; sc.onload = ok; sc.onerror = bad; document.head.appendChild(sc); });
+  const wb = XLSX.utils.book_new(), used = new Set();
+  document.querySelectorAll('#view table').forEach((t, i) => {
+    const title = (t.closest('.card')?.querySelector('h2,h3')?.textContent || 'ตาราง').replace(/[\\/?*\[\]:]/g, ' ').slice(0, 26).trim();
+    let name = title || 'ตาราง', k = 2; while (used.has(name)) name = `${title.slice(0, 24)} ${k++}`; used.add(name);
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.table_to_sheet(t, { raw: false }), name);
+  });
+  if (!wb.SheetNames.length) return alert('หน้านี้ไม่มีตาราง');
+  XLSX.writeFile(wb, `BuddyBrew-${state.tab}-${state.month}.xlsx`);
+});
 $('#month').addEventListener('change', e => { state.month = e.target.value; render(); });
 $('#logout').addEventListener('click', async () => { if (!D.__mock) await sb.auth.signOut(); location.reload(); });
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (D.months) render(); });
