@@ -83,6 +83,10 @@
   .pwrap { position: relative; padding-top: 18px; }
   .pwrap .tl { position: absolute; top: 0; font-size: 11.5px; line-height: 16px; color: var(--text-primary); white-space: nowrap; }
   .pwrap .tl::after { content: ''; position: absolute; left: 50%; bottom: -4px; width: 2px; height: 4px; background: var(--text-primary); }
+  .pwrap.two { padding-bottom: 18px; }
+  .pwrap .tl.b { top: auto; bottom: 0; color: var(--text-secondary); }
+  .pwrap .tl.b::after { bottom: auto; top: -4px; background: var(--text-secondary); }
+  .progress > i.b { background: var(--text-secondary); }
   .chart-box { position: relative; height: 260px; }
   .chart-box.tall { height: 320px; }
   .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--text-secondary); margin: 2px 0 8px; }
@@ -526,21 +530,26 @@ function renderOverview(v) {
   let goalHtml = '<p class="sub">ยังไม่ได้ตั้งค่าแผน (ตาราง plan_settings) — จึงยังคำนวณบันไดเป้าหมายไม่ได้</p>';
   if (L) {
     const bonus = s.openDays ? s.grabOrders * lad.grabPerOrder / s.openDays / lad.ratio : 0;
-    const w = Math.min(100, storeDay / goal * 100), be = Math.min(100, lad.levels[0].perDay / goal * 100);
+    const w = Math.min(100, storeDay / goal * 100), be = Math.min(100, lad.levels[0].perDay / goal * 100), bk = Math.min(100, lad.bookPerDay / goal * 100);
+    const tx = x => x > 80 ? '-100%' : x < 20 ? '0' : '-50%';
+    const dayNote = lad.basis === 'actual' ? `${lad.days} วันที่เปิดจริง (เดือนจบแล้ว)` : `${lad.days} วันเปิดตามแผน`;
     goalHtml = `
       <div class="rowflex"><div><h3>เป้ายอดหน้าร้านต่อวัน</h3><p class="sub">บันไดเป้าหมาย · วัดจากยอดหน้าร้านต่อวันเปิด (Grab เป็นโบนัส)</p></div>
         <div class="seg" id="seg-goal" role="group" aria-label="เลือกขั้นเป้าหมาย">${lad.levels.slice(1).map(x => `<button data-k="${x.id}" class="${x.id === L.id ? 'on' : ''}">${esc(x.short)}</button>`).join('')}</div></div>
       <div class="rowflex" style="align-items:baseline;margin-bottom:0"><div class="num" style="font-size:22px;font-weight:500">${baht(storeDay)} <span style="font-size:15px;color:var(--text-muted);font-weight:300">/ ${baht(goal)} ฿ ต่อวัน</span></div>
         <div class="num" style="font-size:20px;font-weight:500">${pct(storeDay / goal)}</div></div>
-      <div class="pwrap"><div class="tl" style="left:${be}%;transform:translateX(${be > 80 ? '-100%' : be < 20 ? '0' : '-50%'})">ค่าใช้จ่ายครบ ${baht(lad.levels[0].perDay)}</div>
-        <div class="progress" role="img" aria-label="ยอดหน้าร้านต่อวันเทียบเป้า ขีดดำคือยอดที่จ่ายค่าใช้จ่ายร้านครบ"><span style="width:${w}%"></span><i style="left:${be}%" title="ค่าใช้จ่ายครบ (ยังไม่รวมเงินเดือน)"></i></div></div>
-      <p class="sub">${esc(L.label)}: ต้องขายหน้าร้าน ≈ ${baht(goal)} ฿/วัน (≈ ${nf1.format(L.cups)} แก้ว) หรือ ≈ ${baht(goal * daysPlan)} ฿/เดือน (${daysPlan} วันเปิด) · รวมโบนัส Grab (≈ ${baht(bonus)} ฿/วัน) = ${pct((storeDay + bonus) / goal)} · ขีดดำ = ยอดต่อวันที่จ่ายค่าใช้จ่ายร้านครบ (ยังไม่มีเงินเดือนเจ้าของ) · ปลายแถบขวา = เป้าที่เลือก</p>
+      ${lad.trial ? `<div class="warn" style="margin:8px 0">${monthLabelLong(m)} = เดือนทดลอง (เปิด ${s.openDays} วัน และซื้อของเข้าร้านครั้งแรก) — ใช้เทียบกับเดือนปกติไม่ได้</div>` : ''}
+      <div class="pwrap two"><div class="tl" style="left:${be}%;transform:translateX(${tx(be)})">ค่าใช้จ่ายครบ ${baht(lad.levels[0].perDay)}</div>
+        <div class="progress" role="img" aria-label="ยอดหน้าร้านต่อวันเทียบเป้า ขีดดำคือยอดที่จ่ายค่าใช้จ่ายเงินสดครบ ขีดเทาคือคุ้มทุนตามบัญชีรวมค่าเสื่อม"><span style="width:${w}%"></span><i style="left:${be}%" title="ค่าใช้จ่ายเงินสดครบ (ยังไม่รวมเงินเดือน)"></i><i class="b" style="left:${bk}%" title="คุ้มทุนตามบัญชี (รวมค่าเสื่อม)"></i></div>
+        <div class="tl b" style="left:${bk}%;transform:translateX(${tx(bk)})">รวมค่าเสื่อม ${baht(lad.bookPerDay)}</div></div>
+      <p class="sub">${esc(L.label)}: ต้องขายหน้าร้าน ≈ ${baht(goal)} ฿/วัน (≈ ${nf1.format(L.cups)} แก้ว) หรือ ≈ ${baht(goal * lad.days)} ฿/เดือน (${dayNote}) · รวมโบนัส Grab (≈ ${baht(bonus)} ฿/วัน) = ${pct((storeDay + bonus) / goal)} · <b>ขีดดำ</b> = จ่ายค่าใช้จ่ายเงินสดครบ · <b>ขีดเทา</b> = คุ้มทุนตามบัญชี (รวมค่าเสื่อม ${baht(lad.dep)}/เดือน — ผ่านขีดนี้ กำไรสุทธิก่อนเงินเดือนไม่ควรติดลบในเดือนปกติ) · ทั้งสองขีดยังไม่มีเงินเดือนเจ้าของ · ปลายแถบขวา = เป้าที่เลือก</p>
       <details><summary><span class="l">ที่มาของเป้า และทุกขั้นของเดือนนี้</span></summary>
         <div class="scroll"><table class="num"><thead><tr><th>ขั้น</th><th class="r">ต้องมีต่อเดือน</th><th class="r">หน้าร้าน ฿/วัน</th><th class="r">แก้ว/วัน</th><th class="r">${monthLabel(m)} ทำได้</th></tr></thead><tbody>
         ${lad.levels.map(x => `<tr class="${x.id === L.id ? 'sel' : ''}"><td style="white-space:normal">${x.id}. ${esc(x.label)}</td><td class="r">${baht(x.need)}</td><td class="r">${baht(x.perDay)}</td><td class="r">${nf1.format(x.cups)}</td><td class="r">${storeDay >= x.perDay ? '✓ ผ่าน' : 'ยังไม่ถึง'} (${pct(storeDay / x.perDay)})</td></tr>`).join('')}
         </tbody></table></div>
-        <p class="sub" style="margin-top:6px">ต้องมีต่อเดือน = ต้นทุนคงที่เงินสด ${baht(lad.fixed)} (${lad.fixedItems.filter(f => num(f.monthly_amount)).map(f => `${esc(f.name)} ${baht(f.monthly_amount)}`).join(' · ')}) + ซื้อวัตถุดิบเกินที่ใช้ ${baht(lad.over)} + เงินเดือน/คืนหนี้/ค่าเช่าตามขั้น · หน้าร้าน ฿/วัน = ต้องมีต่อเดือน ÷ ${daysPlan} วันเปิด ÷ กำไรส่วนเกิน ${pct(lad.ratio)} (${nf1.format(lad.contrib)} จาก ${nf1.format(lad.netCup)} ฿/แก้ว) · ไม่รวมค่าเสื่อม (ไม่ใช่เงินสด — ใช้คืนหนี้เจ้าของในขั้น 3)</p>
-      </details>`;
+        <p class="sub" style="margin-top:6px">ต้องมีต่อเดือน = ต้นทุนคงที่เงินสด ${baht(lad.fixed)} (${lad.fixedItems.filter(f => num(f.monthly_amount)).map(f => `${esc(f.name)} ${baht(f.monthly_amount)}`).join(' · ')}) + ซื้อวัตถุดิบเกินที่ใช้ ${baht(lad.over)} + เงินเดือน/คืนหนี้/ค่าเช่าตามขั้น · หน้าร้าน ฿/วัน = ต้องมีต่อเดือน ÷ ${dayNote} ÷ กำไรส่วนเกิน ${pct(lad.ratio)} (${nf1.format(lad.contrib)} จาก ${nf1.format(lad.netCup)} ฿/แก้ว) · ไม่รวมค่าเสื่อม (ไม่ใช่เงินสด — ใช้คืนหนี้เจ้าของในขั้น 3)</p>
+      </details>
+      <details><summary><span class="l">เทียบทุกเดือน: ผ่านขีดแล้วกำไรในงบเป็นยังไง</span></summary>${goalHistory(m)}</details>`;
   }
 
   v.innerHTML = `
@@ -597,6 +606,22 @@ function renderOverview(v) {
 function channelLegend(s) {
   return [[css(CHC.walk), 'หน้าร้าน', 1], [css(CHC.gov), CH.gov, 1, 1], [css(CHC.grab), CH.grab, 1, 1], [css(CHC.lm), CH.lm + (s && !s.lineman ? ' <span style="color:var(--text-muted)">ยังไม่มีข้อมูล</span>' : ''), 1, 1]];
 }
+// month-by-month: store sales per open day vs the two break-even ticks vs the P&L net (before owner salary)
+function goalHistory(upto) {
+  const util = D.categories.find(c => /utilit|electric|water/i.test(c.key || ''));
+  const rows = D.months.filter(x => x <= upto).map(x => {
+    const s = salesOfMonth(x), l = ladder(x), p = pnlOfMonth(x), sd = s.openDays ? s.store / s.openDays : 0;
+    const notes = [];
+    if (l.trial) notes.push('เดือนทดลอง ซื้อของเข้าร้านครั้งแรก');
+    if (l.basis === 'plan') notes.push('เดือนยังไม่จบ');
+    if (util && !p.cats[util.key]) notes.push('ยังไม่มีบิลค่าน้ำไฟ');
+    if (D.lastExpense && x >= ym(D.lastExpense)) notes.push('บิลซื้อยังลงไม่ครบ');
+    const mark = v => sd >= v ? '✓' : '✗';
+    return `<tr><td>${monthLabel(x)}</td><td class="r">${s.openDays}</td><td class="r">${baht(sd)}</td><td class="r">${mark(l.levels[0].perDay)} ${baht(l.levels[0].perDay)}</td><td class="r">${mark(l.bookPerDay)} ${baht(l.bookPerDay)}</td><td class="r ${p.net < 0 ? 'neg' : ''}">${baht(p.net)}</td><td style="white-space:normal;color:var(--text-muted)">${notes.join(' · ')}</td></tr>`;
+  });
+  return `<div class="scroll"><table class="num"><thead><tr><th>เดือน</th><th class="r">วันเปิด</th><th class="r">หน้าร้าน/วัน</th><th class="r">ค่าใช้จ่ายครบ</th><th class="r">รวมค่าเสื่อม</th><th class="r">กำไรสุทธิในงบ</th><th>เหตุที่อาจไม่ตรง</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>
+    <p class="sub" style="margin-top:6px">ขีดคิดจากต้นทุนตามสูตร (กำไรส่วนเกิน ${pct(ladder(upto).ratio)}) + ซื้อเกินเฉลี่ย ส่วนงบกำไรขาดทุนคิดจากบิลซื้อจริงทั้งเดือน (ยังไม่มีนับสต็อก) จึงต่างกันได้ในเดือนที่ซื้อของเข้าสต็อกมาก/น้อย · เดือนที่จบแล้วคิดขีดจากวันที่เปิดจริง · กำไรสุทธิในงบ = ก่อนเงินเดือนเจ้าของ</p>`;
+}
 // milestone ladder (Reporting-Direction §10): store sales per open day needed for each level
 const LEVELS = [
   { id: 0, short: 'ค่าใช้จ่ายครบ', parts: [] },
@@ -611,7 +636,11 @@ function ladder(m) {
   const netCup = setting('net_per_cup'), contrib = setting('contribution_per_cup');
   if (!netCup || !contrib) return null;
   const fixedItems = fixedPlanned(m), fixed = fixedItems.reduce((a, f) => a + num(f.monthly_amount), 0);
-  const over = setting('overbuy_monthly') || 0, ratio = contrib / netCup, days = planDays(m, targetFor(m));
+  // finished months: spread the month's costs over the days really opened (e.g. trial month May 2026 opened 16 days);
+  // the current month still uses the planned open days
+  const plan = planDays(m, targetFor(m)), act = salesOfMonth(m).openDays, done = !!D.lastSale && m < ym(D.lastSale);
+  const days = done && act ? act : plan, basis = done && act ? 'actual' : 'plan';
+  const over = setting('overbuy_monthly') || 0, ratio = contrib / netCup, dep = depreciationOfMonth(m);
   const sl = setting('salary_low') || 0, st = setting('salary_target') || 0, debt = setting('owner_debt_repay') || 0, rent = setting('rent') || 0;
   const names = [
     ['ค่าใช้จ่ายครบ', 'จ่ายค่าใช้จ่ายเงินสดครบ (ยังไม่มีเงินเดือน)'],
@@ -624,7 +653,9 @@ function ladder(m) {
     const extra = L.parts.reduce((a, k) => a + (setting(k) || 0), 0), need = fixed + over + extra, perDay = need / days / ratio;
     return { ...L, short: names[i][0], label: names[i][1], need, perDay, cups: perDay / netCup };
   });
-  return { levels, fixed, fixedItems, over, ratio, contrib, netCup, days, grabPerOrder: setting('grab_contribution_per_order') || 0 };
+  // accounting break-even: cash costs + depreciation (passing it means net profit before owner salary should not be negative in a normal month)
+  const bookPerDay = (fixed + over + dep) / days / ratio;
+  return { levels, fixed, fixedItems, over, ratio, contrib, netCup, days, planDays: plan, basis, dep, bookPerDay, trial: m === D.months[0], grabPerOrder: setting('grab_contribution_per_order') || 0 };
 }
 
 // ---------- sales ----------
