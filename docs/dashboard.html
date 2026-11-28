@@ -76,6 +76,7 @@
   .kpi .delta { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
   .delta .up { color: var(--good); } .delta .down { color: var(--critical); }
   .neg { color: var(--critical); }
+  .good { color: var(--good); font-size: 12px; white-space: nowrap; } .bad { color: var(--critical); font-size: 12px; white-space: nowrap; }
   .progress { height: 10px; border-radius: 6px; background: var(--surface-2); overflow: hidden; margin: 10px 0 6px; position: relative; }
   .progress > span { position: absolute; left: 0; top: 0; bottom: 0; background: var(--series-1); border-radius: 6px; }
   .progress > i { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--text-primary); }
@@ -201,7 +202,8 @@ const MOCK_URL = IS_LOCAL ? new URLSearchParams(location.search).get('mock') : n
 const TH_MONTH = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 const TH_DAY = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
 const D = {};            // loaded data
-let state = { tab: 'overview', month: null, salesRange: 3, menuRange: 'month', menuSort: 'profit' };
+let state = { tab: 'overview', month: null, salesRange: 3, menuRange: 'month', menuSort: 'profit', goalLevel: 2 };
+try { const g = Number(localStorage.getItem('bb-dash-goal')); if (g >= 1 && g <= 4) state.goalLevel = g; } catch (_) {}
 let charts = [];
 
 // ---------- helpers ----------
@@ -222,7 +224,7 @@ function daysInMonth(m) { const [y, mm] = m.split('-').map(Number); return new D
 function weekday(dateStr) { const [y, m, d] = dateStr.split('-').map(Number); return new Date(y, m - 1, d).getDay(); }
 function dayLabel(dateStr) { const d = Number(dateStr.slice(8, 10)); return `${d} ${TH_DAY[weekday(dateStr)]}`; }
 function thDate(dateStr) { if (!dateStr) return '–'; return `${Number(dateStr.slice(8, 10))} ${monthLabelLong(dateStr.slice(0, 7))}`; }
-const ASSET_CAT = { equipment: 'อุปกรณ์/เครื่องใช้', decor: 'ตกแต่งร้าน', furniture: 'เฟอร์นิเจอร์', renovation: 'ปรับปรุงร้าน', electronics: 'อิเล็กทรอนิกส์' };
+const ASSET_CAT = { equipment: 'อุปกรณ์/เครื่องใช้', decor: 'ตกแต่งร้านและป้าย', furniture: 'เฟอร์นิเจอร์', renovation: 'ปรับปรุงร้าน', electronics: 'อิเล็กทรอนิกส์' };
 function deltaHtml(cur, prev, label) {
   if (!prev) return `<div class="delta">${label}: –</div>`;
   const ch = (cur - prev) / Math.abs(prev);
@@ -251,12 +253,13 @@ async function fetchAll(table, select = '*', order) {
 
 async function loadData() {
   if (MOCK_URL) D.__mock = await (await fetch(MOCK_URL)).json();
-  const [daily, hourly, menuSales, optionSales, fixedItems, closures, expenseItems, categories, menuCosts, expenses, assets, liabilities, accounts, targets, balances, ownerEntries] = await Promise.all([
+  const [daily, hourly, menuSales, optionSales, fixedItems, settings, closures, expenseItems, categories, menuCosts, expenses, assets, liabilities, accounts, targets, balances, ownerEntries] = await Promise.all([
     fetchAll('v_sales_daily', '*', 'business_date'),
     fetchAll('v_sales_hourly', '*'),
     fetchAll('v_menu_sales', '*'),
     fetchAll('v_option_sales', '*'),
     fetchAll('fixed_cost_items', '*'),
+    fetchAll('plan_settings', '*').catch(() => []),   // optional: dashboard still works without the plan
     fetchAll('shop_closures', '*'),
     fetchAll('expense_items', 'expense_id,line_total,category_id'),
     fetchAll('expense_categories', 'id,key,label_th,group_key,sort_order'),
@@ -269,7 +272,7 @@ async function loadData() {
     fetchAll('account_balances', '*'),
     fetchAll('owner_account_entries', '*'),
   ]);
-  Object.assign(D, { daily, hourly, menuSales, optionSales, fixedItems, closures, expenseItems, categories, menuCosts, expenses, assets, liabilities, accounts, targets, balances, ownerEntries });
+  Object.assign(D, { daily, hourly, menuSales, optionSales, fixedItems, settings, closures, expenseItems, categories, menuCosts, expenses, assets, liabilities, accounts, targets, balances, ownerEntries });
   D.closureMap = Object.fromEntries(D.closures.map(c => [c.closed_date, c.reason || 'หยุดพิเศษ']));
   D.catById = Object.fromEntries(D.categories.map(c => [c.id, c]));
   D.itemsByExpense = new Map();
@@ -433,26 +436,30 @@ function renderOverview(v) {
   const t = targetFor(m), con = contribution([m, addMonths(m, -1), addMonths(m, -2)]);
   const isCurrent = m === ym(D.lastSale || '');
   const daysPlan = planDays(m, t);
-  const gr = grossRatio(m);
-  const fixedItemsSum = fixedPlanned(m).reduce((a, f) => a + num(f.monthly_amount), 0);
-  const fixedM = t && t.fixed_cost != null ? num(t.fixed_cost) : fixedItemsSum + depreciationOfMonth(m);
-  const salaryT = t ? num(t.owner_salary_target) : 0;
   const perDay = s.openDays ? s.total / s.openDays : 0;
-  const projected = perDay * daysPlan;
-  const breakEven = gr.ratio > 0 ? fixedM / gr.ratio : null;
-  const goal = t && t.sales_target ? num(t.sales_target) : (gr.ratio > 0 ? (fixedM + salaryT) / gr.ratio : null);
+  const storeDay = s.openDays ? s.store / s.openDays : 0;
   const expenseLag = D.lastExpense && D.lastExpense < (D.lastSale || '') && D.lastExpense.slice(0, 7) <= m;
+  const lad = ladder(m);
+  const L = lad ? lad.levels[state.goalLevel] || lad.levels[2] : null;
+  const goal = L ? L.perDay : null;
 
-  let goalHtml = '<p class="sub">ยังไม่ได้ตั้งเป้าหมายของเดือนนี้ (ตาราง monthly_targets)</p>';
-  if (goal) {
-    const base = isCurrent ? projected : s.total, w = Math.min(100, base / goal * 100);
-    const be = breakEven ? Math.min(100, breakEven / goal * 100) : null;
+  let goalHtml = '<p class="sub">ยังไม่ได้ตั้งค่าแผน (ตาราง plan_settings) — จึงยังคำนวณบันไดเป้าหมายไม่ได้</p>';
+  if (L) {
+    const bonus = s.openDays ? s.grabOrders * lad.grabPerOrder / s.openDays / lad.ratio : 0;
+    const w = Math.min(100, storeDay / goal * 100), be = Math.min(100, lad.levels[0].perDay / goal * 100);
     goalHtml = `
-      <div class="rowflex"><div><h3>เป้ายอดขายเดือนนี้ ${baht(goal)} ฿</h3>
-        <p class="sub">${t && t.sales_target ? 'ตั้งเป้าไว้' : `(ต้นทุนคงที่+ค่าเสื่อม ${baht(fixedM)} + เงินเดือนเป้า ${baht(salaryT)}) ÷ กำไรขั้นต้นจริง ${pct(gr.ratio)} (${gr.months.map(monthLabel).join(', ')})`} · เป้าต่อวัน ${baht(goal / daysPlan)} ฿ · วันเปิดตามแผน ${daysPlan} วัน</p></div>
-        <div class="num" style="font-size:20px;font-weight:500">${pct(base / goal)}</div></div>
-      <div class="progress" role="img" aria-label="ความคืบหน้าเทียบเป้า"><span style="width:${w}%"></span>${be != null ? `<i style="left:${be}%" title="จุดคุ้มทุน"></i>` : ''}</div>
-      <p class="sub">${isCurrent ? `ขายแล้ว ${baht(s.total)} ฿ ใน ${s.openDays} วัน · ถ้าขายระดับนี้ทั้งเดือน ≈ ${baht(projected)} ฿` : `ขายได้ ${baht(s.total)} ฿`}${breakEven ? ` · เส้นดำ = จุดคุ้มทุน ${baht(breakEven)} ฿ (ยังไม่จ่ายเงินเดือนตัวเอง)` : ''}</p>`;
+      <div class="rowflex"><div><h3>เป้ายอดหน้าร้านต่อวัน</h3><p class="sub">บันไดเป้าหมาย · วัดจากยอดหน้าร้านต่อวันเปิด (Grab เป็นโบนัส)</p></div>
+        <div class="seg" id="seg-goal" role="group" aria-label="เลือกขั้นเป้าหมาย">${lad.levels.slice(1).map(x => `<button data-k="${x.id}" class="${x.id === L.id ? 'on' : ''}">${esc(x.short)}</button>`).join('')}</div></div>
+      <div class="rowflex" style="align-items:baseline;margin-bottom:0"><div class="num" style="font-size:22px;font-weight:500">${baht(storeDay)} <span style="font-size:15px;color:var(--text-muted);font-weight:300">/ ${baht(goal)} ฿ ต่อวัน</span></div>
+        <div class="num" style="font-size:20px;font-weight:500">${pct(storeDay / goal)}</div></div>
+      <div class="progress" role="img" aria-label="ยอดหน้าร้านต่อวันเทียบเป้า"><span style="width:${w}%"></span><i style="left:${be}%" title="ค่าใช้จ่ายครบ"></i></div>
+      <p class="sub">${esc(L.label)}: ต้องขายหน้าร้าน ≈ ${baht(goal)} ฿/วัน (≈ ${nf1.format(L.cups)} แก้ว) หรือ ≈ ${baht(goal * daysPlan)} ฿/เดือน (${daysPlan} วันเปิด) · รวมโบนัส Grab (≈ ${baht(bonus)} ฿/วัน) = ${pct((storeDay + bonus) / goal)} · เส้นดำ = ค่าใช้จ่ายครบ ${baht(lad.levels[0].perDay)} ฿/วัน</p>
+      <details><summary><span class="l">ที่มาของเป้า และทุกขั้นของเดือนนี้</span></summary>
+        <div class="scroll"><table class="num"><thead><tr><th>ขั้น</th><th class="r">ต้องมีต่อเดือน</th><th class="r">หน้าร้าน ฿/วัน</th><th class="r">แก้ว/วัน</th><th class="r">${monthLabel(m)} ทำได้</th></tr></thead><tbody>
+        ${lad.levels.map(x => `<tr class="${x.id === L.id ? 'sel' : ''}"><td style="white-space:normal">${x.id}. ${esc(x.label)}</td><td class="r">${baht(x.need)}</td><td class="r">${baht(x.perDay)}</td><td class="r">${nf1.format(x.cups)}</td><td class="r">${storeDay >= x.perDay ? '✓ ผ่าน' : 'ยังไม่ถึง'} (${pct(storeDay / x.perDay)})</td></tr>`).join('')}
+        </tbody></table></div>
+        <p class="sub" style="margin-top:6px">ต้องมีต่อเดือน = ต้นทุนคงที่เงินสด ${baht(lad.fixed)} (${lad.fixedItems.filter(f => num(f.monthly_amount)).map(f => `${esc(f.name)} ${baht(f.monthly_amount)}`).join(' · ')}) + ซื้อวัตถุดิบเกินที่ใช้ ${baht(lad.over)} + เงินเดือน/คืนหนี้/ค่าเช่าตามขั้น · หน้าร้าน ฿/วัน = ต้องมีต่อเดือน ÷ ${daysPlan} วันเปิด ÷ กำไรส่วนเกิน ${pct(lad.ratio)} (${nf1.format(lad.contrib)} จาก ${nf1.format(lad.netCup)} ฿/แก้ว) · ไม่รวมค่าเสื่อม (ไม่ใช่เงินสด — ใช้คืนหนี้เจ้าของในขั้น 3)</p>
+      </details>`;
   }
 
   v.innerHTML = `
@@ -461,12 +468,12 @@ function renderOverview(v) {
       <div class="card kpi"><div class="label">ยอดขายรวม</div><div class="value num">${baht(s.total)} ฿</div>${isCurrent && s.openDays < daysPlan ? deltaHtml(perDay, p.openDays ? p.total / p.openDays : 0, 'ต่อวันเปิด เทียบเดือนก่อน') : deltaHtml(s.total, p.total, 'เทียบเดือนก่อน')}</div>
       <div class="card kpi"><div class="label">แก้ว (หน้าร้าน + Grab)</div><div class="value num">${nf0.format(s.cups)}</div><div class="delta">${s.openDays ? nf1.format(s.cups / s.openDays) : '–'} แก้ว/วันเปิด</div></div>
       <div class="card kpi"><div class="label">กำไรสุทธิ (หลังค่าเสื่อม)</div><div class="value num ${profit < 0 ? 'neg' : ''}">${baht(profit)} ฿</div><div class="delta">รายจ่าย ${baht(opex)} · ค่าเสื่อม ${baht(dep)}</div></div>
-      <div class="card kpi"><div class="label">ยอดเฉลี่ยต่อวันเปิด</div><div class="value num">${baht(perDay)} ฿</div><div class="delta">เปิด ${s.openDays} วัน${goal ? ` · เป้า ${baht(goal / daysPlan)}` : ''}</div></div>
+      <div class="card kpi"><div class="label">ยอดหน้าร้านต่อวันเปิด</div><div class="value num">${baht(storeDay)} ฿</div><div class="delta">เปิด ${s.openDays} วัน${goal ? ` · เป้า ${baht(goal)}` : ''} · รวม Grab ${baht(perDay)}</div></div>
     </div>
     <div class="card" style="margin-bottom:12px">${goalHtml}</div>
     <div class="grid two">
       <div class="card"><h2>ยอดขายรายวัน</h2><p class="sub">${monthLabelLong(m)} · หน้าร้าน (POS) และ Grab (เงินเข้าสุทธิ)</p>
-        ${legend([[css('--series-1'), 'หน้าร้าน', 1], [css('--series-2'), 'Grab', 1]].concat(goal ? [[css('--text-primary'), 'เป้าต่อวัน']] : []))}
+        ${legend([[css('--series-1'), 'หน้าร้าน', 1], [css('--series-2'), 'Grab', 1]].concat(goal ? [[css('--text-primary'), 'เป้าหน้าร้าน/วัน']] : []))}
         <div class="chart-box"><canvas id="c-daily"></canvas></div></div>
       <div class="card"><h2>สรุปเดือน ${monthLabelLong(m)}</h2><p class="sub">กำไร = รายรับ − รายจ่ายที่บันทึก − ค่าเสื่อม (ไม่นับการจ่ายคืนหนี้)</p>
         <div class="lines num">
@@ -492,7 +499,7 @@ function renderOverview(v) {
     { type: 'bar', label: 'หน้าร้าน', data: store, backgroundColor: css('--series-1'), stack: 's', borderRadius: 4, borderSkipped: 'start', borderColor: css('--surface-1'), borderWidth: { top: 2 }, maxBarThickness: 18 },
     { type: 'bar', label: 'Grab', data: grab, backgroundColor: css('--series-2'), stack: 's', borderRadius: 4, borderSkipped: 'start', borderColor: css('--surface-1'), borderWidth: { top: 2 }, maxBarThickness: 18 },
   ];
-  if (goal) ds.push({ type: 'line', label: 'เป้าต่อวัน', data: labels.map(() => goal / daysPlan), borderColor: css('--text-primary'), borderWidth: 2, borderDash: [5, 4], pointRadius: 0, pointHoverRadius: 0 });
+  if (goal) ds.push({ type: 'line', label: 'เป้าหน้าร้าน/วัน', data: labels.map(() => goal), borderColor: css('--text-primary'), borderWidth: 2, borderDash: [5, 4], pointRadius: 0, pointHoverRadius: 0 });
   charts.push(new Chart($('#c-daily'), {
     data: { labels, datasets: ds },
     options: baseChartOptions({
@@ -502,6 +509,38 @@ function renderOverview(v) {
           footer: it => { const tot = it.filter(x => x.dataset.type === 'bar').reduce((t, x) => t + (x.raw || 0), 0); return `รวม ${baht(tot)} ฿`; } } }) }),
     }),
   }));
+  const sg = $('#seg-goal');
+  if (sg) sg.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; state.goalLevel = Number(b.dataset.k); try { localStorage.setItem('bb-dash-goal', b.dataset.k); } catch (_) {} render(); });
+}
+
+// milestone ladder (Reporting-Direction §10): store sales per open day needed for each level
+const LEVELS = [
+  { id: 0, short: 'ค่าใช้จ่ายครบ', parts: [] },
+  { id: 1, parts: ['salary_low'] },
+  { id: 2, parts: ['salary_target'] },
+  { id: 3, parts: ['salary_target', 'owner_debt_repay'] },
+  { id: 4, parts: ['salary_target', 'owner_debt_repay', 'rent'] },
+];
+function setting(k) { const r = D.settings.find(x => x.key === k); return r ? num(r.value) : null; }
+function kNum(n) { return n >= 1000 ? `${nf1.format(n / 1000).replace(/\.0$/, '')}k` : nf0.format(n); }
+function ladder(m) {
+  const netCup = setting('net_per_cup'), contrib = setting('contribution_per_cup');
+  if (!netCup || !contrib) return null;
+  const fixedItems = fixedPlanned(m), fixed = fixedItems.reduce((a, f) => a + num(f.monthly_amount), 0);
+  const over = setting('overbuy_monthly') || 0, ratio = contrib / netCup, days = planDays(m, targetFor(m));
+  const sl = setting('salary_low') || 0, st = setting('salary_target') || 0, debt = setting('owner_debt_repay') || 0, rent = setting('rent') || 0;
+  const names = [
+    ['ค่าใช้จ่ายครบ', 'จ่ายค่าใช้จ่ายเงินสดครบ (ยังไม่มีเงินเดือน)'],
+    [`เงินเดือน ${kNum(sl)}`, `+ เงินเดือน ${baht(sl)}`],
+    [`เงินเดือน ${kNum(st)}`, `+ เงินเดือน ${baht(st)}`],
+    ['+ คืนหนี้เจ้าของ', `+ เงินเดือน ${baht(st)} + คืนหนี้เจ้าของ ${baht(debt)}/เดือน`],
+    ['+ ค่าเช่า', `+ เงินเดือน ${baht(st)} + คืนหนี้ ${baht(debt)} + ค่าเช่า ${baht(rent)} (จำลองย้ายที่/ขยายร้าน)`],
+  ];
+  const levels = LEVELS.map((L, i) => {
+    const extra = L.parts.reduce((a, k) => a + (setting(k) || 0), 0), need = fixed + over + extra, perDay = need / days / ratio;
+    return { ...L, short: names[i][0], label: names[i][1], need, perDay, cups: perDay / netCup };
+  });
+  return { levels, fixed, fixedItems, over, ratio, contrib, netCup, days, grabPerOrder: setting('grab_contribution_per_order') || 0 };
 }
 
 // ---------- sales ----------
@@ -711,23 +750,44 @@ function renderPnl(v) {
   const last3 = grossRatio(state.month).months;
   const avgCat = k => k ? last3.reduce((a, x) => a + (pnlOfMonth(x).cats[k] || 0), 0) / (last3.length || 1) : null;
   const fixedSum = planned.reduce((a, f) => a + num(f.monthly_amount), 0);
+  // month column: defaults to the latest month with data every time the page opens
+  const fm = state.fixedMonth && D.months.includes(state.fixedMonth) ? state.fixedMonth : D.months[D.months.length - 1];
+  const fmCats = pnlOfMonth(fm).cats, fmDep = depreciationOfMonth(fm);
+  const cmp = (actual, plan) => {   // lower cost than planned = good
+    if (actual == null) return '';
+    if (!plan && !actual) return '';
+    if (!plan) return ' <span class="bad" title="ไม่ได้ตั้งไว้ แต่มีจ่ายจริง">▲</span>';
+    if (!actual) return ' <span class="muted" title="ยังไม่มีบิลของรายการนี้ในระบบ จึงยังเทียบไม่ได้">ไม่มีบิล</span>';
+    const ch = (actual - plan) / plan;
+    if (Math.abs(ch) < 0.03) return ' <span class="muted" title="ใกล้เคียงที่ตั้งไว้">≈</span>';
+    return ch < 0 ? ` <span class="good" title="ต่ำกว่าที่ตั้งไว้ ${pct(-ch)} — ดีแล้ว">▼ ${pct(-ch)}</span>` : ` <span class="bad" title="สูงกว่าที่ตั้งไว้ ${pct(ch)}">▲ ${pct(ch)}</span>`;
+  };
+  const comparable = planned.filter(f => f.category_key && avgCat(f.category_key) > 0);   // only items that have bills
+  const cPlan = comparable.reduce((a, f) => a + num(f.monthly_amount), 0) + dep;
+  const cAvg = comparable.reduce((a, f) => a + avgCat(f.category_key), 0) + dep;
+  const cMon = comparable.reduce((a, f) => a + (fmCats[f.category_key] || 0), 0) + fmDep;
+  const dash = '<span style="color:var(--text-muted)">–</span>';
+  const monthSel = `<select id="fixed-month" aria-label="เลือกเดือนที่จะดู" style="font-size:12.5px;padding:2px 4px;border-radius:6px;border:1px solid var(--border);background:var(--surface-1)">${[...D.months].reverse().map(x => `<option value="${x}" ${x === fm ? 'selected' : ''}>${monthLabel(x)}</option>`).join('')}</select>`;
 
   v.innerHTML = `
     <div class="card"><h2>งบกำไรขาดทุนรายเดือน</h2><p class="sub">รายรับจาก POS/Grab · รายจ่ายตามบิลที่ลงในระบบ (นับตอนซื้อ เดือนที่ซื้อของตุนจะดูกำไรน้อยลง) · ค่าเสื่อมคำนวณจากทรัพย์สิน · การจ่ายคืนหนี้ไม่นับเป็นรายจ่าย · พ.ค. = เดือนทดลอง</p>
       <div class="scroll">${html}</div></div>
     <div class="grid two" style="margin-top:12px">
-      <div class="card"><h2>ต้นทุนคงที่ต่อเดือน</h2><p class="sub">ค่าที่ใช้คิดจุดคุ้มทุน เทียบกับที่จ่ายจริงเฉลี่ย ${last3.map(monthLabel).join(', ')}</p>
-        <div class="scroll"><table class="num"><thead><tr><th>รายการ</th><th class="r">ตั้งไว้/เดือน</th><th class="r">จ่ายจริงเฉลี่ย</th></tr></thead><tbody>
-        ${planned.map(f => `<tr title="${esc(f.note || '')}"><td>${esc(f.name)}</td><td class="r">${baht(f.monthly_amount)}</td><td class="r">${f.category_key ? baht(avgCat(f.category_key)) : '<span style="color:var(--text-muted)">–</span>'}</td></tr>`).join('')}
-        <tr><td>ค่าเสื่อมทรัพย์สิน (คำนวณจากรายการทรัพย์สิน)</td><td class="r">${baht(dep)}</td><td class="r">${baht(dep)}</td></tr>
-        <tr class="sum"><td>รวมต้นทุนคงที่</td><td class="r">${baht(fixedSum + dep)}</td><td class="r"></td></tr>
-        ${salaryT ? `<tr><td>เงินเดือนเจ้าของ (เป้า)</td><td class="r">${baht(salaryT)}</td><td class="r"></td></tr><tr class="sum"><td>รวมที่ต้องหาให้ได้ต่อเดือน</td><td class="r">${baht(fixedSum + dep + salaryT)}</td><td class="r"></td></tr>` : ''}
+      <div class="card"><h2>ต้นทุนคงที่ต่อเดือน</h2><p class="sub">ที่ตั้งไว้ เทียบกับที่จ่ายจริงเฉลี่ย ${last3.map(monthLabel).join(', ')} และเดือนที่เลือก · ▼ เขียว = จ่ายต่ำกว่าที่ตั้ง (ดีแล้ว) · ▲ แดง = เกินที่ตั้ง</p>
+        <div class="scroll"><table class="num"><thead><tr><th>รายการ</th><th class="r">ตั้งไว้/เดือน</th><th class="r">จ่ายจริงเฉลี่ย</th><th class="r">${monthSel}</th></tr></thead><tbody>
+        ${planned.map(f => { const a = f.category_key ? avgCat(f.category_key) : null; const mo = f.category_key ? (fmCats[f.category_key] || 0) : null;
+          return `<tr title="${esc(f.note || '')}"><td style="white-space:normal;min-width:120px">${esc(f.name)}</td><td class="r">${baht(f.monthly_amount)}</td><td class="r">${a == null ? dash : baht(a) + cmp(a, num(f.monthly_amount))}</td><td class="r">${mo == null ? dash : baht(mo)}</td></tr>`; }).join('')}
+        <tr><td style="white-space:normal">ค่าเสื่อมทรัพย์สิน (คำนวณจากรายการทรัพย์สิน)</td><td class="r">${baht(dep)}</td><td class="r">${baht(dep)}</td><td class="r">${baht(fmDep)}</td></tr>
+        <tr class="sum"><td style="white-space:normal">รวมรายการที่มีบิลให้เทียบ (${comparable.map(f => esc(f.name.replace(/^ค่า/, ''))).concat('ค่าเสื่อม').join(', ')})</td><td class="r">${baht(cPlan)}</td><td class="r">${baht(cAvg)}${cmp(cAvg, cPlan)}</td><td class="r">${baht(cMon)}</td></tr>
+        <tr class="sum"><td>รวมต้นทุนคงที่ที่ตั้งไว้</td><td class="r">${baht(fixedSum + dep)}</td><td class="r"></td><td class="r"></td></tr>
+        ${salaryT ? `<tr><td>เงินเดือนเจ้าของ (เป้า)</td><td class="r">${baht(salaryT)}</td><td class="r"></td><td class="r"></td></tr><tr class="sum"><td style="white-space:normal">รวมที่ต้องหาให้ได้ต่อเดือน</td><td class="r">${baht(fixedSum + dep + salaryT)}</td><td class="r"></td><td class="r"></td></tr>` : ''}
         </tbody></table></div>
-        <p class="sub" style="margin-top:8px">"ตั้งไว้" มาจากชีตต้นทุนคงที่ของรายงานหลัก (โมเดลค่าเช่า 0) · จะแก้ได้ในหน้าหลังบ้าน</p></div>
+        <p class="sub" style="margin-top:8px">– = ไม่มีหมวดรายจ่ายให้เทียบ (ค่าเช่า, ค่าขยะ, เมล็ดทิ้งตอน dial-in, รายจ่ายอื่น) · จ่ายจริงนับตามวันที่ในบิล บิลที่จ่ายช้าจะไปอยู่เดือนถัดไป · "ตั้งไว้" มาจากชีตต้นทุนคงที่ของรายงานหลัก แก้ได้ในหน้าหลังบ้าน (รอบถัดไป)</p></div>
       <div class="card"><h2>กำไรสุทธิรายเดือน</h2><p class="sub">หลังค่าเสื่อม · ก่อนเงินเดือนเจ้าของ</p><div class="chart-box"><canvas id="c-net"></canvas></div></div>
     </div>`;
   const o = baseChartOptions(); o.scales.y.beginAtZero = true;
   o.plugins.tooltip.callbacks = { label: c => ` กำไรสุทธิ ${baht(c.raw)} ฿`, afterLabel: c => `รายรับ ${baht(P[c.dataIndex].s.total)} ฿` };
+  $('#fixed-month').addEventListener('change', e => { state.fixedMonth = e.target.value; const y = window.scrollY; render(); window.scrollTo({ top: y }); });
   charts.push(new Chart($('#c-net'), { type: 'bar', data: { labels: months.map(monthLabel), datasets: [{ label: 'กำไรสุทธิ', data: P.map(p => Math.round(p.net)), backgroundColor: P.map(p => p.net < 0 ? css('--critical') : css('--series-1')), borderRadius: 4, borderSkipped: 'start', maxBarThickness: 44 }] }, options: o }));
 }
 
